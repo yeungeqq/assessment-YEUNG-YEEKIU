@@ -33,3 +33,5 @@ create table messages (
 );
 
 create index on document_chunks using ivfflat (embedding vector_cosine_ops);
+
+alter table documents add column if not exists mime_type text;

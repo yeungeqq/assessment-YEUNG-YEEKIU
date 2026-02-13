@@ -9,16 +9,56 @@ export default function Upload() {
     setStatus('')
     if (!file) return setStatus('Choose a file first.')
 
-    // NOTE: Create a Storage bucket called "documents" in Supabase (recommended private)
-    const user = (await supabase.auth.getUser()).data.user
-    if (!user) return setStatus('Not authenticated')
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) return setStatus("Not authenticated");
 
-    const path = `${user.id}/${Date.now()}-${file.name}`
-    const { error } = await supabase.storage.from('documents').upload(path, file, { upsert: false })
+    const path = `${user.id}/${Date.now()}-${file.name}`;
 
-    if (error) return setStatus(`Upload failed: ${error.message}`)
+    // 1) upload to storage
+    const { error: upErr } = await supabase.storage.from("documents").upload(path, file);
+    if (upErr) return setStatus(`Upload failed: ${upErr.message}`);
 
-    setStatus(`Uploaded to: ${path}. Next: call backend /documents/ingest to chunk+embed.`)
+    // 2) insert into documents table
+    const { data: doc, error: docErr } = await supabase
+      .from("documents")
+      .insert({
+        user_id: user.id,
+        title: file.name,
+        file_path: path,
+        mime_type: file.type
+      })
+      .select()
+      .single();
+
+    if (docErr) return setStatus(`DB insert failed: ${docErr.message}`);
+
+    // 3) call backend ingest endpoint
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+
+    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/documents/ingest`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify({ documentId: doc.id }),
+    });
+
+    let json: any = null
+    try { json = await res.json() } catch { /* ignore */ }
+    
+    if (!res.ok) {
+      const msg =
+        (typeof json?.error === "string" ? json.error : null) ??
+        (json?.error?.message ? json.error.message : null) ??
+        (json?.error ? JSON.stringify(json.error) : null) ??
+        (await res.text().catch(() => "")) ??
+        "unknown error";
+      return setStatus(`Ingest failed: ${msg}`);
+    }
+
+    setStatus("Upload + ingestion started ✅");
   }
 
   return (
