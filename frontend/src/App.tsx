@@ -36,7 +36,7 @@ export default function App() {
   return (
     <div style={{ fontFamily: 'system-ui', maxWidth: 980, margin: '0 auto', padding: 16 }}>
       <header style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 }}>
-        <Link to="/" style={{ fontWeight: 700, textDecoration: 'none' }}>AI KB Copilot</Link>
+        <Link to="/" style={{ fontWeight: 700, textDecoration: 'none' }}>DocuPilot</Link>
         <nav style={{ display: 'flex', gap: 10 }}>
           <Link to="/chat">Chat</Link>
           <Link to="/upload">Upload</Link>

@@ -1,10 +1,11 @@
 import mammoth from "mammoth";
+import { createRequire } from "module";
+
+const require = createRequire(import.meta.url);
+const pdfParse = require("pdf-parse");
 
 export async function extractTextFromFile(buffer: Buffer, mimeType: string): Promise<string> {
   if (mimeType === "application/pdf") {
-    // Works whether pdf-parse exports as default or module itself
-    const mod: any = await import("pdf-parse");
-    const pdfParse = mod.default ?? mod; // pick callable export
     const data = await pdfParse(buffer);
     return data.text || "";
   }

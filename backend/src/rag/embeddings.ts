@@ -1,13 +1,19 @@
-import OpenAI from "openai";
+import { HuggingFaceInferenceEmbeddings } from "@langchain/community/embeddings/hf";
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const token = process.env.HUGGINGFACEHUB_API_TOKEN;
+if (!token) throw new Error("Missing HUGGINGFACEHUB_API_TOKEN");
 
-export async function embedTexts(texts: string[]) {
-  // OpenAI embedding model: 1536 dims
-  const resp = await client.embeddings.create({
-    model: "text-embedding-3-small",
-    input: texts,
-  });
+const model = process.env.HF_EMBED_MODEL || "BAAI/bge-base-en-v1.5";
 
-  return resp.data.map(d => d.embedding);
+const embeddings = new HuggingFaceInferenceEmbeddings({
+  apiKey: token,
+  model,
+});
+
+export async function embedText(text: string): Promise<number[]> {
+  return embeddings.embedQuery(text);
+}
+
+export async function embedBatch(texts: string[]): Promise<number[][]> {
+  return embeddings.embedDocuments(texts);
 }
