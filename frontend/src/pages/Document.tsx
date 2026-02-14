@@ -18,6 +18,48 @@ export default function Document() {
   const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [toDelete, setToDelete] = useState<DocRow | null>(null);
+
+  function openDeleteModal(doc: DocRow) {
+    setErr(null);
+    setToDelete(doc);
+    setConfirmOpen(true);
+  }
+  
+  async function deleteDocConfirmed() {
+    if (!toDelete) return;
+    setDeleting(true);
+    setErr(null);
+  
+    try {
+      // 1) delete file in storage
+      const rmStorage = await supabase.storage
+        .from("documents")
+        .remove([toDelete.file_path]);
+  
+      if (rmStorage.error) {
+        // If file is already gone, you might still want to proceed.
+        // But for now, surface the error.
+        throw new Error(rmStorage.error.message);
+      }
+  
+      // 2) delete row in documents table (chunks will cascade)
+      const rmDoc = await supabase.from("documents").delete().eq("id", toDelete.id);
+  
+      if (rmDoc.error) throw new Error(rmDoc.error.message);
+  
+      setConfirmOpen(false);
+      setToDelete(null);
+      await loadDocs();
+    } catch (e: any) {
+      setErr(e?.message ?? "Failed to delete document.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   async function loadDocs() {
     setLoading(true);
     setErr(null);
@@ -190,13 +232,21 @@ export default function Document() {
                   {d.title ?? "Untitled"}
                 </div>
 
-                <div className="col-span-3 flex justify-center">
+                <div className="col-span-3 flex justify-center gap-3">
                   <button
                     onClick={() => downloadDoc(d)}
                     className="px-4 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200
-                               hover:bg-emerald-100 text-sm transition"
+                              hover:bg-emerald-100 text-sm transition"
                   >
                     Download
+                  </button>
+
+                  <button
+                    onClick={() => openDeleteModal(d)}
+                    className="px-4 py-1.5 rounded-full bg-red-100/60 text-red-700 border border-red-200/70
+                              hover:bg-red-200/70 text-sm transition"
+                  >
+                    Delete
                   </button>
                 </div>
               </div>
@@ -261,6 +311,53 @@ export default function Document() {
                 className="px-4 py-2 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-semibold disabled:opacity-60"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmOpen && toDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* overlay */}
+          <div
+            className="absolute inset-0 bg-black/30"
+            onClick={() => (deleting ? null : setConfirmOpen(false))}
+          />
+
+          {/* card */}
+          <div className="relative w-full max-w-md rounded-lg bg-white shadow-xl border border-slate-200 p-6">
+            <div className="flex items-center">
+              <h2 className="text-lg font-extrabold text-slate-800">Delete document?</h2>
+              <button
+                className="ml-auto text-slate-400 hover:text-slate-600"
+                onClick={() => (deleting ? null : setConfirmOpen(false))}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="mt-3 text-sm text-slate-600">
+              This will permanently delete{" "}
+              <span className="font-semibold text-slate-800">{toDelete.title ?? "Untitled"}</span>,
+              including all extracted chunks created from it.
+            </p>
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmOpen(false)}
+                disabled={deleting}
+                className="px-4 py-2 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-semibold disabled:opacity-60"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={deleteDocConfirmed}
+                disabled={deleting}
+                className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 text-sm font-semibold disabled:opacity-60"
+              >
+                {deleting ? "Deleting..." : "Delete"}
               </button>
             </div>
           </div>

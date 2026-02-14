@@ -182,9 +182,6 @@ app.post("/documents/ingest", requireUser, async (req, res) => {
       vectors.push(...embs);
     }
 
-    console.log("CHUNKS:", chunks.length);
-    console.log("VECTOR DIM:", vectors[0]?.length);
-
     // 7) replace previous chunks (re-ingest safe)
     await supabaseAdmin.from("document_chunks").delete().eq("document_id", documentId);
 

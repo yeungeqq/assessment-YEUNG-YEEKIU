@@ -95,7 +95,7 @@ export default function Chat() {
                   className="text-slate-800 text-base leading-7"
                 >
                   <span className="font-semibold">
-                    {m.role === "user" ? "You:" : "DocuPilot:"}
+                    {m.role === "user" ? "You:" : "CortexDocs AI Assistant:"}
                   </span>{" "}
                   {m.content}
                 </div>

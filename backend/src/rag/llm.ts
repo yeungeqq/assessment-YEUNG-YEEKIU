@@ -10,7 +10,7 @@ type ChatCompletionResponse = {
   
   export async function answerWithSources(question: string, sources: string[]) {
     const context = sources
-      .map((s, i) => `Source [S${i + 1}]: ${s}`)
+      .map((s) => s)
       .join("\n\n")
       .slice(0, 6000);
   
@@ -19,13 +19,31 @@ type ChatCompletionResponse = {
       messages: [
         {
           role: "system",
-          content:
-            "Answer using ONLY the provided sources. If insufficient, say so.",
+          content: `
+            You are an internal business assistant.
+            
+            Respond with a short and precise answer.
+            Use only the provided sources.
+            Do not include:
+            - citations
+            - bullet points
+            - markdown
+            - bold or special formatting
+            - source labels
+            - headings
+            - explanations about the sources
+            
+            Write in plain text only.
+            If the answer is not found in the sources, say:
+            "I cannot find this information in the uploaded documents."
+          `.trim(),
         },
-        { role: "user", content: `Question: ${question}\n\nSources:\n${context}` },
+        {
+          role: "user",
+          content: `Question: ${question}\n\nSources:\n${context}`,
+        },
       ],
-      temperature: 0.2,
-      max_tokens: 350,
+      temperature: 0.1,
     };
   
     const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -47,5 +65,5 @@ type ChatCompletionResponse = {
       throw new Error(`Groq LLM error: ${msg}`);
     }
   
-    return json?.choices?.[0]?.message?.content ?? "";
+    return json?.choices?.[0]?.message?.content?.trim() ?? "";
   }
