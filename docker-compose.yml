@@ -5,13 +5,14 @@ services:
       - "8080:8080"
     env_file:
       - ./backend/.env
+    restart: unless-stopped
+
   frontend:
     build: ./frontend
     ports:
       - "5173:5173"
     environment:
-      - VITE_BACKEND_URL=http://localhost:8080
-    env_file:
-      - ./frontend/.env
+      - VITE_API_URL=http://localhost:8080
     depends_on:
       - backend
+    restart: unless-stopped

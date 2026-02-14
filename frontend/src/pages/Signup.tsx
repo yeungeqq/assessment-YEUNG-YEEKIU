@@ -1,41 +1,84 @@
-import { useState } from 'react'
-import { supabase } from '../supabaseClient'
-import { Link, useNavigate } from 'react-router-dom'
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { supabase } from "../supabaseClient";
 
 export default function Signup() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [info, setInfo] = useState<string | null>(null)
-  const navigate = useNavigate()
+  const nav = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setInfo(null)
+    e.preventDefault();
+    setErr(null);
+    setLoading(true);
 
-    const { error } = await supabase.auth.signUp({ email, password })
-    if (error) return setError(error.message)
+    const { error } = await supabase.auth.signUp({ email, password });
 
-    setInfo('Signup successful. If email confirmation is enabled, please confirm then log in.')
-    // If confirmation disabled, user may be logged in automatically:
-    const { data } = await supabase.auth.getSession()
-    if (data.session) navigate('/chat')
+    setLoading(false);
+    if (error) return setErr(error.message);
+
+    nav("/chat");
   }
 
   return (
-    <div style={{ maxWidth: 420 }}>
-      <h2>Sign up</h2>
-      <form onSubmit={onSubmit} style={{ display: 'grid', gap: 8 }}>
-        <input placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
-        <input placeholder="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} />
-        <button type="submit">Create account</button>
-        {error && <div style={{ color: 'crimson' }}>{error}</div>}
-        {info && <div style={{ color: 'green' }}>{info}</div>}
-      </form>
-      <p style={{ marginTop: 12 }}>
-        Have an account? <Link to="/login">Log in</Link>
-      </p>
+    <div className="flex items-center justify-center py-10">
+      <div className="w-full max-w-xl bg-white rounded-md shadow-sm border border-slate-200 p-10">
+        <h1 className="text-3xl font-extrabold text-center text-slate-800">Sign Up</h1>
+
+        <form className="mt-8 space-y-5" onSubmit={onSubmit}>
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              Email
+            </label>
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              type="email"
+              placeholder="enter email address here..."
+              className="w-full h-11 rounded-sm border border-slate-200 bg-slate-50 px-4 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              Password
+            </label>
+            <div className="relative">
+              <input
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                type="password"
+                placeholder="enter password here..."
+                className="w-full h-11 rounded-sm border border-slate-200 bg-slate-50 px-4 pr-12 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+          </div>
+
+          {err && (
+            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3">
+              {err}
+            </div>
+          )}
+
+          <button
+            disabled={loading}
+            className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm transition disabled:opacity-60"
+          >
+            {loading ? "Signing up..." : "Sign Up"}
+          </button>
+
+          <div className="pt-4 border-t border-slate-200 text-center text-sm text-slate-600">
+            Already have an account?{" "}
+            <Link to="/login" className="text-blue-600 font-semibold hover:underline">
+              Log In
+            </Link>
+          </div>
+        </form>
+      </div>
     </div>
-  )
+  );
 }

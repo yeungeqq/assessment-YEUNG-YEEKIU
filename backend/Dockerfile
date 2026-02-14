@@ -1,12 +1,11 @@
-FROM node:20-alpine AS deps
+FROM node:20-alpine
 WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm install
 
-FROM node:20-alpine AS runner
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+COPY package*.json ./
+RUN npm ci
+
 COPY . .
 RUN npm run build
+
 EXPOSE 8080
 CMD ["npm", "run", "start"]

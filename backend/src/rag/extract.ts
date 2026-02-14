@@ -1,21 +1,40 @@
 import mammoth from "mammoth";
-import { createRequire } from "module";
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 
-const require = createRequire(import.meta.url);
-const pdfParse = require("pdf-parse");
-
-export async function extractTextFromFile(buffer: Buffer, mimeType: string): Promise<string> {
+export async function extractTextFromFile(
+  buffer: Buffer,
+  mimeType: string
+): Promise<string> {
   if (mimeType === "application/pdf") {
-    const data = await pdfParse(buffer);
-    return data.text || "";
+    const loadingTask = (pdfjsLib as any).getDocument({
+      data: new Uint8Array(buffer),
+      disableWorker: true, // ✅ Node: no worker needed
+    });
+
+    const pdf = await loadingTask.promise;
+
+    let out = "";
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const content = await page.getTextContent();
+
+      const strings = content.items
+        .map((it: any) => (typeof it.str === "string" ? it.str : ""))
+        .filter(Boolean);
+
+      out += strings.join(" ") + "\n";
+    }
+
+    return out.trim();
   }
 
   if (
-    mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    mimeType ===
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
     mimeType === "application/msword"
   ) {
     const result = await mammoth.extractRawText({ buffer });
-    return result.value || "";
+    return (result.value || "").trim();
   }
 
   throw new Error(`Unsupported mime type: ${mimeType}`);
