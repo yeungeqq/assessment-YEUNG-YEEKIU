@@ -55,74 +55,78 @@ app.get("/health", (_req, res) => {
  */
 app.post("/chat", requireUser, async (req, res) => {
   const schema = z.object({
+    chatId: z.string().uuid(),
     message: z.string().min(1).max(4000),
   });
-  const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const question = parsed.data.message;
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+
+  const { chatId, message } = parsed.data;
+  const userId = req.userId!;
 
   try {
-    // 1) embed query
-    const queryEmbedding = await embedText(question);
+    // ✅ 1. Ensure chat belongs to user
+    const { data: chat, error: chatErr } = await supabaseAdmin
+      .from("chats")
+      .select("id")
+      .eq("id", chatId)
+      .eq("user_id", userId)
+      .single();
 
-    if (!Array.isArray(queryEmbedding) || queryEmbedding.length !== 768) {
-      return res.status(500).json({ error: `Bad embedding dim: ${queryEmbedding?.length}` });
+    if (chatErr || !chat) {
+      return res.status(403).json({ error: "Invalid chat ID" });
     }
 
-    // 2) retrieve top chunks (RPC)
-    const { data: matches, error: matchErr } = await supabaseAdmin.rpc("match_chunks_json", {
-      match_count: 6,
-      query_embedding: queryEmbedding, // raw JS array => json in postgres func
+    // ✅ 2. Insert user message
+    await supabaseAdmin.from("chat_messages").insert({
+      chat_id: chatId,
+      user_id: userId,
+      role: "user",
+      content: message,
     });
 
-    if (matchErr) {
-      console.error("match_chunks_json error:", matchErr);
-      return res.status(500).json({ error: `Vector search failed: ${matchErr.message}` });
-    }
+    // ✅ 3. Generate answer (your existing RAG logic)
+    const queryEmbedding = await embedText(message);
 
-    const rows = (Array.isArray(matches) ? (matches as MatchRow[]) : []) ?? [];
-
-    // If no matches, return graceful response (no fake hallucinations)
-    if (rows.length === 0) {
-      return res.json({
-        answer: "I couldn't find relevant information in the uploaded documents.",
-        citations: [],
+    const { data: matches, error: matchErr } =
+      await supabaseAdmin.rpc("match_chunks_json", {
+        match_count: 6,
+        query_embedding: queryEmbedding,
       });
+
+    if (matchErr) {
+      return res.status(500).json({ error: matchErr.message });
     }
 
-    // 3) fetch doc titles for citations
-    const docIds = [...new Set(rows.map((r) => r.document_id))];
-    const { data: docs, error: docsErr } = await supabaseAdmin
-      .from("documents")
-      .select("id,title")
-      .in("id", docIds);
+    const rows = Array.isArray(matches) ? matches : [];
 
-    if (docsErr) console.warn("Could not fetch doc titles:", docsErr.message);
+    let answer = "I cannot find this information in the uploaded documents.";
 
-    const titleById = new Map<string, string>(
-      (docs ?? []).map((d: any) => [d.id, d.title ?? "Untitled"])
-    );
+    if (rows.length > 0) {
+      const sources = rows
+        .slice(0, 6)
+        .map(
+          (m: any, i: number) =>
+            `Source [S${i + 1}]\n${(m.content ?? "").slice(0, 1400)}`
+        );
 
-    // 4) Build context sources (increase a bit; 800 can be too short)
-    const sources = rows
-      .slice(0, 6)
-      .map((m, i) => `Source [S${i + 1}]\n${(m.content ?? "").slice(0, 1400)}`);
+      answer = await answerWithSources(message, sources);
+    }
 
-    // 5) Ask LLM
-    const answer = await answerWithSources(question, sources);
+    // ✅ 4. Insert assistant message
+    await supabaseAdmin.from("chat_messages").insert({
+      chat_id: chatId,
+      user_id: userId,
+      role: "assistant",
+      content: answer,
+    });
 
-    // 6) Return citations
-    const citations = rows.map((m, i) => ({
-      label: `S${i + 1}`,
-      documentId: m.document_id,
-      documentTitle: titleById.get(m.document_id) ?? "Untitled",
-      chunkIndex: m.chunk_index,
-      similarity: m.similarity,
-      snippet: (m.content ?? "").slice(0, 260) + "...",
-    }));
+    // ✅ 5. Return answer
+    return res.json({ answer });
 
-    return res.json({ answer, citations });
   } catch (e: any) {
     console.error("CHAT ERROR:", e);
     return res.status(500).json({ error: e?.message ?? "Chat failed" });

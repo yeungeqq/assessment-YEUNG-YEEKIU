@@ -12,7 +12,7 @@ type ChatCompletionResponse = {
     const context = sources
       .map((s) => s)
       .join("\n\n")
-      .slice(0, 6000);
+      .slice(0, 2000);
   
     const body = {
       model,
@@ -22,9 +22,9 @@ type ChatCompletionResponse = {
           content: `
             You are an internal business assistant.
             
-            Respond with a short and precise answer.
+            Respond with a SHORT and PRECISE answer.
             Use only the provided sources.
-            Do not include:
+            Do NOT include:
             - citations
             - bullet points
             - markdown
