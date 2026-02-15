@@ -1,6 +1,7 @@
 // src/pages/Document.tsx
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "../supabaseClient";
+import JSZip from "jszip";
+import * as API from "../Api";
 
 type DocRow = {
   id: string;
@@ -8,6 +9,24 @@ type DocRow = {
   file_path: string;
   created_at: string;
 };
+
+function inferMimeType(name: string) {
+  const lower = name.toLowerCase();
+  if (lower.endsWith(".pdf")) return "application/pdf";
+  if (lower.endsWith(".docx"))
+    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  if (lower.endsWith(".doc")) return "application/msword";
+  return "";
+}
+
+function isAllowedDoc(name: string) {
+  const lower = name.toLowerCase();
+  return lower.endsWith(".pdf") || lower.endsWith(".doc") || lower.endsWith(".docx");
+}
+
+function isZip(name: string) {
+  return name.toLowerCase().endsWith(".zip");
+}
 
 export default function Document() {
   const [docs, setDocs] = useState<DocRow[]>([]);
@@ -27,44 +46,12 @@ export default function Document() {
     setToDelete(doc);
     setConfirmOpen(true);
   }
-  
-  async function deleteDocConfirmed() {
-    if (!toDelete) return;
-    setDeleting(true);
-    setErr(null);
-  
-    try {
-      // 1) delete file in storage
-      const rmStorage = await supabase.storage
-        .from("documents")
-        .remove([toDelete.file_path]);
-  
-      if (rmStorage.error) {
-        // If file is already gone, you might still want to proceed.
-        // But for now, surface the error.
-        throw new Error(rmStorage.error.message);
-      }
-  
-      // 2) delete row in documents table (chunks will cascade)
-      const rmDoc = await supabase.from("documents").delete().eq("id", toDelete.id);
-  
-      if (rmDoc.error) throw new Error(rmDoc.error.message);
-  
-      setConfirmOpen(false);
-      setToDelete(null);
-      await loadDocs();
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to delete document.");
-    } finally {
-      setDeleting(false);
-    }
-  }
 
   async function loadDocs() {
     setLoading(true);
     setErr(null);
 
-    const { data: userData, error: userErr } = await supabase.auth.getUser();
+    const { data: userData, error: userErr } = await API.getCurrentUser();
     if (userErr || !userData.user) {
       setErr("Not logged in.");
       setLoading(false);
@@ -72,14 +59,9 @@ export default function Document() {
     }
 
     const userId = userData.user.id;
-
-    const { data, error } = await supabase
-      .from("documents")
-      .select("id,title,file_path,created_at")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
-
+    const { data, error } = await API.fetchDocuments(userId);
     if (error) setErr(error.message);
+
     setDocs((data ?? []) as DocRow[]);
     setLoading(false);
   }
@@ -96,7 +78,12 @@ export default function Document() {
 
   async function downloadDoc(doc: DocRow) {
     setErr(null);
-    const { data, error } = await supabase.storage.from("documents").createSignedUrl(doc.file_path, 60);
+
+    // Assumes you added this helper to Api.tsx:
+    // export function createDownloadUrl(path: string, seconds: number) {
+    //   return supabase.storage.from("documents").createSignedUrl(path, seconds);
+    // }
+    const { data, error } = await API.createDownloadUrl(doc.file_path, 60);
 
     if (error || !data?.signedUrl) {
       setErr(error?.message ?? "Failed to create download link.");
@@ -106,74 +93,153 @@ export default function Document() {
     window.open(data.signedUrl, "_blank", "noopener,noreferrer");
   }
 
+  async function deleteDocConfirmed() {
+    if (!toDelete) return;
+    setDeleting(true);
+    setErr(null);
+
+    try {
+      // Assumes you added these helpers to Api.tsx:
+      // export function removeStorageFile(path: string) { return supabase.storage.from("documents").remove([path]); }
+      // export function deleteDocumentRow(id: string) { return supabase.from("documents").delete().eq("id", id); }
+      const rmStorage = await API.removeStorageFile(toDelete.file_path);
+      if (rmStorage.error) throw new Error(rmStorage.error.message);
+
+      const rmDoc = await API.deleteDocumentRow(toDelete.id);
+      if (rmDoc.error) throw new Error(rmDoc.error.message);
+
+      setConfirmOpen(false);
+      setToDelete(null);
+      await loadDocs();
+    } catch (e: any) {
+      setErr(e?.message ?? "Failed to delete document.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  async function ingestOneFile(userId: string, file: File) {
+    // Guard: never allow zip to be uploaded/ingested as a document
+    if (file.name.toLowerCase().endsWith(".zip")) {
+      throw new Error("ZIP files cannot be uploaded as a document.");
+    }
+
+    if (!isAllowedDoc(file.name)) {
+      throw new Error(`Unsupported file: ${file.name}. Only PDF/DOC/DOCX allowed.`);
+    }
+
+    // Ensure mime type exists (important for backend extractor)
+    const mime = file.type || inferMimeType(file.name);
+    const fixedFile = mime ? new File([file], file.name, { type: mime }) : file;
+
+    const safeName = fixedFile.name.replace(/\s+/g, "_");
+    const filePath = `${userId}/${Date.now()}_${Math.random()
+      .toString(36)
+      .slice(2)}_${safeName}`;
+
+    const up = await API.uploadFileToStorage(filePath, fixedFile);
+    if ((up as any)?.error) throw new Error((up as any).error.message);
+
+    // Assumes you added createDocumentRow to Api.tsx:
+    // export function createDocumentRow(row: {user_id:string; title:string; file_path:string; mime_type:string|null;}) {
+    //   return supabase.from("documents").insert(row).select("id").single();
+    // }
+    const ins = await API.createDocumentRow({
+      user_id: userId,
+      title: fixedFile.name,
+      file_path: filePath,
+      mime_type: fixedFile.type || null,
+    });
+
+    if ((ins as any)?.error || !(ins as any)?.data?.id) {
+      throw new Error((ins as any)?.error?.message ?? "Failed to create document record.");
+    }
+
+    await API.callIngest((ins as any).data.id);
+  }
+
   async function onUpload(file: File) {
     setUploading(true);
     setErr(null);
-  
+
     try {
-      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      const { data: userData, error: userErr } = await API.getCurrentUser();
       if (userErr || !userData.user) throw new Error("Not logged in.");
-  
+
       const userId = userData.user.id;
-  
-      // Storage path: userId/timestamp_filename
-      const safeName = file.name.replace(/\s+/g, "_");
-      const filePath = `${userId}/${Date.now()}_${safeName}`;
-  
-      // 1) upload to storage
-      const up = await supabase.storage.from("documents").upload(filePath, file, {
-        upsert: false,
-        contentType: file.type || undefined,
-      });
-  
-      if (up.error) throw new Error(up.error.message);
-  
-      // 2) insert row into documents table
-      const ins = await supabase
-        .from("documents")
-        .insert({
-          user_id: userId,
-          title: file.name,
-          file_path: filePath,
-          mime_type: file.type || null,
-        })
-        .select("id")
-        .single();
-  
-      if (ins.error || !ins.data?.id) {
-        throw new Error(ins.error?.message ?? "Failed to create document record.");
+
+      // --------------------------
+      // CASE 1: ZIP upload (extract-only)
+      // --------------------------
+      if (isZip(file.name)) {
+        // Read zip as arraybuffer to avoid “end of central directory” issues with some browsers
+        const buf = await file.arrayBuffer();
+        const zip = await JSZip.loadAsync(buf);
+
+        const entries = Object.values(zip.files).filter((f) => {
+          if (f.dir) return false;
+
+          const name = f.name.split("/").pop() || "";
+
+          // Ignore macOS metadata
+          if (f.name.startsWith("__MACOSX/")) return false;
+
+          // Ignore hidden files
+          if (name.startsWith(".")) return false;
+
+          // Ignore temp office files
+          if (name.startsWith("~$")) return false;
+
+          return isAllowedDoc(name);
+        });
+
+        const invalid = entries.filter((f) => !isAllowedDoc(f.name));
+        if (invalid.length > 0) {
+          const names = invalid.slice(0, 8).map((f) => f.name).join(", ");
+          throw new Error(
+            `ZIP contains unsupported file types. Only PDF/DOC/DOCX allowed. Invalid: ${names}${
+              invalid.length > 8 ? "…" : ""
+            }`
+          );
+        }
+
+        const valid = entries.filter((f) => isAllowedDoc(f.name));
+        if (valid.length === 0) {
+          throw new Error("ZIP file contains no valid documents (PDF/DOC/DOCX).");
+        }
+
+        // Upload extracted docs one-by-one
+        for (const entry of valid) {
+          const blob = await entry.async("blob");
+
+          // Preserve original filename but remove folders if any
+          const baseName = entry.name.split("/").pop() || entry.name;
+
+          const extracted = new File([blob], baseName, {
+            type: inferMimeType(baseName) || "application/octet-stream",
+          });
+
+          await ingestOneFile(userId, extracted);
+        }
+
+        setOpen(false);
+        await loadDocs();
+        return;
       }
-  
-      const documentId = ins.data.id;
-  
-      // 3) call backend ingest to create chunks
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-      if (!token) throw new Error("Missing access token (not logged in).");
-  
-      const resp = await fetch("http://localhost:8080/documents/ingest", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ documentId }),
-      });
-  
-      const body = await resp.json().catch(() => ({}));
-  
-      if (!resp.ok) {
-        throw new Error(body?.error ?? `Ingest failed (HTTP ${resp.status})`);
+
+      // --------------------------
+      // CASE 2: Single file upload
+      // --------------------------
+      if (!isAllowedDoc(file.name)) {
+        throw new Error("Only PDF, DOC, DOCX, or ZIP files are allowed.");
       }
-  
-      // success
+
+      await ingestOneFile(userId, file);
+
       setOpen(false);
       await loadDocs();
     } catch (e: any) {
       setErr(e?.message ?? "Upload failed");
-  
-      // OPTIONAL rollback: if you want, we can also delete the storage file + DB row here
-      // so you don't end up with "uploaded but not chunked" docs.
     } finally {
       setUploading(false);
     }
@@ -234,7 +300,7 @@ export default function Document() {
 
                 <div className="col-span-3 flex justify-center gap-3">
                   <button
-                    onClick={() => downloadDoc(d)}
+                    onClick={() => void downloadDoc(d)}
                     className="px-4 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200
                               hover:bg-emerald-100 text-sm transition"
                   >
@@ -263,6 +329,7 @@ export default function Document() {
             className="absolute inset-0 bg-black/30"
             onClick={() => (uploading ? null : setOpen(false))}
           />
+
           {/* card */}
           <div className="relative w-full max-w-lg rounded-lg bg-white shadow-xl border border-slate-200 p-6">
             <div className="flex items-center">
@@ -276,14 +343,14 @@ export default function Document() {
             </div>
 
             <p className="mt-2 text-sm text-slate-600">
-              Choose a PDF or DOCX file to upload.
+              Choose a PDF, Word (DOC/DOCX), or ZIP file to upload. ZIP may contain only PDF/DOC/DOCX.
             </p>
 
             <div className="mt-5">
               <label className="block">
                 <input
                   type="file"
-                  accept=".pdf,.doc,.docx"
+                  accept=".pdf,.doc,.docx,.zip"
                   disabled={uploading}
                   onChange={(e) => {
                     const f = e.target.files?.[0];
@@ -317,6 +384,7 @@ export default function Document() {
         </div>
       )}
 
+      {/* Delete confirmation modal */}
       {confirmOpen && toDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           {/* overlay */}
@@ -339,8 +407,10 @@ export default function Document() {
 
             <p className="mt-3 text-sm text-slate-600">
               This will permanently delete{" "}
-              <span className="font-semibold text-slate-800">{toDelete.title ?? "Untitled"}</span>,
-              including all extracted chunks created from it.
+              <span className="font-semibold text-slate-800">
+                {toDelete.title ?? "Untitled"}
+              </span>
+              , including all extracted chunks created from it.
             </p>
 
             <div className="mt-6 flex justify-end gap-2">
@@ -353,7 +423,7 @@ export default function Document() {
               </button>
 
               <button
-                onClick={deleteDocConfirmed}
+                onClick={() => void deleteDocConfirmed()}
                 disabled={deleting}
                 className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 text-sm font-semibold disabled:opacity-60"
               >

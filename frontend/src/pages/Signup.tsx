@@ -1,6 +1,7 @@
+// src/pages/Signup.tsx
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { supabase } from "../supabaseClient";
+import * as API from "../Api";
 
 export default function Signup() {
   const nav = useNavigate();
@@ -14,7 +15,7 @@ export default function Signup() {
     setErr(null);
     setLoading(true);
 
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { error } = await API.signup(email, password);
 
     setLoading(false);
     if (error) return setErr(error.message);

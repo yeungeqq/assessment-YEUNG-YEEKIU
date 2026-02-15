@@ -6,7 +6,6 @@ import AppLayout from "./layout/AppLayout";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Chat from "./pages/Chat";
-import Upload from "./pages/Upload";
 import Document from "./pages/Document";
 
 function Protected({ children }: { children: JSX.Element }) {

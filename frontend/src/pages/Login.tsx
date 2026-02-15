@@ -1,6 +1,7 @@
+// src/pages/Login.tsx
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { supabase } from "../supabaseClient";
+import * as API from "../Api";
 
 export default function Login() {
   const nav = useNavigate();
@@ -15,18 +16,12 @@ export default function Login() {
     setErr(null);
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await API.login(email, password);
 
     setLoading(false);
     if (error) return setErr(error.message);
 
-    // Supabase persists session by default; "remember me" is optional UI here
-    // If you want true "no-remember", you'd manage storage manually.
     void remember;
-
     nav("/chat");
   }
 

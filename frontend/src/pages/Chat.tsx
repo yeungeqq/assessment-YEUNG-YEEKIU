@@ -1,7 +1,6 @@
+// src/pages/Chat.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
-import { supabase } from "../supabaseClient";
-
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL as string;
+import * as API from "../Api";
 
 type ChatRow = {
   id: string;
@@ -35,9 +34,7 @@ export default function Chat() {
   const [chatId, setChatId] = useState<string | null>(null);
   const [chatSearch, setChatSearch] = useState("");
 
-  // --- auto-scroll refs
   const bottomRef = useRef<HTMLDivElement | null>(null);
-
   function scrollToBottom(smooth = true) {
     bottomRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "auto" });
   }
@@ -50,15 +47,8 @@ export default function Chat() {
   async function loadChats(selectFirstIfEmpty = true) {
     setError(null);
 
-    const { data, error } = await supabase
-      .from("chats")
-      .select("id,title,updated_at")
-      .order("updated_at", { ascending: false });
-
-    if (error) {
-      setError(error.message);
-      return;
-    }
+    const { data, error } = await API.fetchChats();
+    if (error) return setError(error.message);
 
     const rows = (data ?? []) as ChatRow[];
     setChats(rows);
@@ -72,16 +62,8 @@ export default function Chat() {
   async function loadMessages(id: string) {
     setError(null);
 
-    const { data, error } = await supabase
-      .from("chat_messages")
-      .select("role,content")
-      .eq("chat_id", id)
-      .order("created_at", { ascending: true });
-
-    if (error) {
-      setError(error.message);
-      return;
-    }
+    const { data, error } = await API.fetchMessages(id);
+    if (error) return setError(error.message);
 
     setMessages((data ?? []) as MsgRow[]);
   }
@@ -92,13 +74,7 @@ export default function Chat() {
   }, []);
 
   async function updateChatTitle(id: string, title: string) {
-    const { data, error } = await supabase
-      .from("chats")
-      .update({ title })
-      .eq("id", id)
-      .select("id,title,updated_at")
-      .single();
-
+    const { data, error } = await API.updateChatTitle(id, title);
     if (error) throw new Error(error.message);
 
     const row = data as ChatRow;
@@ -109,21 +85,13 @@ export default function Chat() {
   async function createChatWithTitle(title: string) {
     setError(null);
 
-    const { data, error } = await supabase
-      .from("chats")
-      .insert({ title })
-      .select("id,title,updated_at")
-      .single();
-
-    if (error || !data) {
-      throw new Error(error?.message ?? "Failed to create chat");
-    }
+    const { data, error } = await API.createChat(title);
+    if (error || !data) throw new Error(error?.message ?? "Failed to create chat");
 
     const row = data as ChatRow;
     setChats((prev) => [row, ...prev.filter((c) => c.id !== row.id)]);
     setChatId(row.id);
     setMessages([]);
-
     return row;
   }
 
@@ -171,28 +139,17 @@ export default function Chat() {
     setDeleteModal({ open: false, chat: null });
   }
 
-  async function deleteChat(chat: ChatRow) {
+  async function removeChatRow(chat: ChatRow) {
     setError(null);
-
     try {
-      // Delete messages first (unless you have ON DELETE CASCADE)
-      const { error: msgErr } = await supabase
-        .from("chat_messages")
-        .delete()
-        .eq("chat_id", chat.id);
-
-      if (msgErr) throw new Error(msgErr.message);
-
-      const { error: chatErr } = await supabase.from("chats").delete().eq("id", chat.id);
-      if (chatErr) throw new Error(chatErr.message);
+      const { error } = await API.removeChat(chat.id);
+      if (error) throw new Error(error.message);
 
       setChats((prev) => prev.filter((c) => c.id !== chat.id));
-
       if (chatId === chat.id) {
         setChatId(null);
         setMessages([]);
       }
-
       closeDeleteModal();
     } catch (e: any) {
       setError(e?.message || "Failed to delete chat");
@@ -203,9 +160,7 @@ export default function Chat() {
     function onMouseDown(ev: MouseEvent) {
       if (!ctxMenu.open) return;
       const el = ctxMenuRef.current;
-      if (el && ev.target instanceof Node && !el.contains(ev.target)) {
-        closeCtxMenu();
-      }
+      if (el && ev.target instanceof Node && !el.contains(ev.target)) closeCtxMenu();
     }
 
     function onKeyDown(ev: KeyboardEvent) {
@@ -230,7 +185,6 @@ export default function Chat() {
 
     setError(null);
 
-    // snapshot BEFORE optimistic append
     const activeChatIdBefore = chatId;
     const activeChatBefore = activeChatIdBefore
       ? chats.find((c) => c.id === activeChatIdBefore)
@@ -238,48 +192,27 @@ export default function Chat() {
 
     const chatLooksUntitled =
       !activeChatBefore?.title || activeChatBefore.title.trim() === "New chat";
-
     const chatIsEmptyBeforeSend = messages.length === 0;
 
-    // optimistic user message
     const userMsg: MsgRow = { role: "user", content: text };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setLoading(true);
 
     try {
-      // If no chat selected, create placeholder one first
       let activeChatId = activeChatIdBefore;
       if (!activeChatId) {
         const row = await createChatWithTitle("New chat");
         activeChatId = row.id;
       }
 
-      // If this chat is empty and still "New chat", rename it using the first question
       if (chatIsEmptyBeforeSend && chatLooksUntitled) {
         const newTitle = summarizeTitle(text);
         await updateChatTitle(activeChatId, newTitle);
         void loadChats(false);
       }
 
-      const { data } = await supabase.auth.getSession();
-      const token = data.session?.access_token;
-      if (!token) throw new Error("Not authenticated");
-
-      const res = await fetch(`${BACKEND_URL}/chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          chatId: activeChatId,
-          message: userMsg.content,
-        }),
-      });
-
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || "Request failed");
+      const json = await API.sendMessage(activeChatId, userMsg.content);
 
       setMessages((prev) => [
         ...prev,
@@ -298,17 +231,13 @@ export default function Chat() {
   const sidebarChats = useMemo(() => {
     const q = chatSearch.trim().toLowerCase();
     if (!q) return chats;
-
-    return chats.filter((c) =>
-      (c.title ?? "Untitled chat").toLowerCase().includes(q)
-    );
+    return chats.filter((c) => (c.title ?? "Untitled chat").toLowerCase().includes(q));
   }, [chats, chatSearch]);
 
   return (
     <div className="flex gap-0 h-[80vh] min-h-0 bg-white border border-slate-200 rounded-md overflow-hidden">
       {/* Left sidebar */}
       <aside className="w-64 bg-blue-100/70 border-r border-slate-200 flex flex-col min-h-0">
-        {/* Top: create button */}
         <div className="p-4">
           <button
             className="w-full flex items-center gap-2 bg-blue-200 hover:bg-blue-300 text-slate-800 font-semibold rounded-md px-3 py-2 transition"
@@ -319,7 +248,6 @@ export default function Chat() {
           </button>
         </div>
 
-        {/* Middle: scrollable chat list */}
         <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-3 pr-2">
           {sidebarChats.map((c) => {
             const active = c.id === chatId;
@@ -350,7 +278,6 @@ export default function Chat() {
           )}
         </div>
 
-        {/* Bottom: search bar pinned to bottom */}
         <div className="p-3 border-t border-slate-200 bg-blue-100/70">
           <div className="relative">
             <input
@@ -387,10 +314,7 @@ export default function Chat() {
               {messages.map((m, idx) => {
                 const isUser = m.role === "user";
                 return (
-                  <div
-                    key={idx}
-                    className={`flex ${isUser ? "justify-end" : "justify-start"}`}
-                  >
+                  <div key={idx} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
                     <div
                       className={[
                         "max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-6 shadow-sm",
@@ -488,7 +412,7 @@ export default function Chat() {
               </button>
               <button
                 className="px-4 py-2 rounded-md bg-red-600 hover:bg-red-700 text-white font-semibold"
-                onClick={() => void deleteChat(deleteModal.chat!)}
+                onClick={() => void removeChatRow(deleteModal.chat!)}
               >
                 Delete
               </button>

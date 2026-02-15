@@ -1,92 +1,63 @@
-# Executable Architecture — React (Frontend) + Node.js (Backend) + Supabase
+**CortexDocs AI**
+=================
 
-This is a starter scaffold for a full-stack app using:
-- **Frontend:** React + TypeScript (Vite)
-- **Backend:** Node.js + TypeScript (Express)
-- **Auth/DB/Storage:** Supabase (hosted)
+CortexDocs AI is a full-stack AI-powered document intelligence web application that allows users to upload PDF and DOCX documents and interact with them through a conversational interface. Built on a Retrieval-Augmented Generation (RAG) architecture, the system extracts document text, segments it into semantic chunks, generates vector embeddings, and performs similarity-based retrieval to ensure that every response is grounded strictly in user-uploaded content.
 
-> Note: This repo assumes you've already created your Supabase project.
+The platform integrates secure authentication, document management, semantic search, and conversational AI into a single streamlined workflow. Users can upload individual files or bulk ZIP archives, manage stored documents, and ask contextual follow-up questions within a persistent chat interface. By combining vector search with controlled LLM prompting, CortexDocs AI minimizes hallucination and delivers accurate, document-backed answers.
 
----
+CortexDocs AI is designed for university students, professionals, and internal teams who frequently work with long reports, technical documentation, policies, or assessment materials. It transforms static documents into an interactive knowledge system, significantly reducing the time required to locate and understand critical information.
 
-## 1) Prerequisites
-- Node.js 18+ (recommended 20+)
-- npm (or pnpm/yarn)
+**Run Locally (Without Docker)**
+--------------------------------
 
----
+### **Backend**
 
-## 2) Environment Variables
+Create backend/.env:
 
-### Frontend (`frontend/.env`)
-Create `frontend/.env`:
-```
-VITE_SUPABASE_URL=YOUR_SUPABASE_URL
-VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
-VITE_BACKEND_URL=http://localhost:8080
-```
-
-### Backend (`backend/.env`)
-Create `backend/.env`:
 ```
 PORT=8080
-SUPABASE_URL=YOUR_SUPABASE_URL
-SUPABASE_SERVICE_ROLE_KEY=YOUR_SUPABASE_SERVICE_ROLE_KEY
-# Optional: provider keys (e.g., OpenAI) for LLM calls
-OPENAI_API_KEY=
+SUPABASE_URL=your_supabase_url
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+GROQ_API_KEY=your_llm_key
+HUGGINGFACEHUB_API_TOKEN=your_embedding_key
 ```
 
----
-
-## 3) Run locally (dev)
-
-### Backend
-```bash
+```
 cd backend
 npm install
 npm run dev
 ```
 
-### Frontend
-```bash
+Backend runs at http://localhost:8080
+
+### **Frontend**
+
+Create frontend/.env:
+
+```
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_BACKEND_URL=http://localhost:8080
+```
+
+```
 cd frontend
 npm install
 npm run dev
 ```
 
-Open: http://localhost:5173
+Frontend runs at http://localhost:5173
 
----
+**Run with Docker**
+-------------------
 
-## 4) What’s included
+Create frontend and backend .env as above. Ensure Docker is installed, then from the project root:
 
-### Frontend
-- Supabase Auth (email/password)
-- Protected routes
-- Pages:
-  - Login / Signup
-  - Chat (UI scaffold)
-  - Upload Documents (UI scaffold)
-
-### Backend
-- JWT verification via Supabase Admin (`SUPABASE_SERVICE_ROLE_KEY`)
-- Endpoints:
-  - `GET /health`
-  - `POST /chat` (stub: where you’ll implement RAG + LLM)
-  - `POST /documents/ingest` (stub: where you’ll implement extraction/chunking/embedding)
-
----
-
-## 5) Next steps (for RAG)
-- Enable `pgvector` in Supabase (SQL editor):
-```sql
-create extension if not exists vector;
 ```
-- Create tables: `documents`, `document_chunks`, `chats`, `messages`
-- Implement:
-  - `/documents/ingest` → fetch from Supabase Storage, extract text, chunk, embed, store vectors
-  - `/chat` → embed query, vector search, build prompt, call LLM, return answer + citations
+docker compose up --build
+```
 
----
+The application will be available at:
 
-## 6) Docker (optional)
-Dockerfiles are included for both services.
+* Frontend: http://localhost:5173
+* Backend: http://localhost:8080

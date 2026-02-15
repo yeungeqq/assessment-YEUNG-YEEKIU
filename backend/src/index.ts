@@ -44,10 +44,6 @@ export const supabaseAdmin = createClient(
   SERVICE_ROLE || "missing-service-role-key"
 );
 
-app.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "backend", time: new Date().toISOString() });
-});
-
 /**
  * POST /chat
  * Body: { message: string }
@@ -155,6 +151,13 @@ app.post("/documents/ingest", requireUser, async (req, res) => {
       .single();
 
     if (docErr || !doc) return res.status(404).json({ error: "Document not found or not owned by user" });
+    
+    // 🚫 Block ZIP ingestion
+    if (!doc.mime_type || doc.mime_type === "application/zip") {
+      return res.status(400).json({
+        error: "ZIP files are not supported for ingestion. Extract them before uploading."
+      });
+    }
 
     // 2) signed URL to download
     const { data: signed, error: signErr } = await supabaseAdmin.storage
@@ -170,8 +173,24 @@ app.post("/documents/ingest", requireUser, async (req, res) => {
     const buffer = Buffer.from(await fileResp.arrayBuffer());
 
     // 4) extract text
-    const mimeType = doc.mime_type || "application/pdf";
-    const text = await extractTextFromFile(buffer, mimeType);
+    const mimeType = doc.mime_type;
+
+    if (!mimeType ||
+        (mimeType !== "application/pdf" &&
+        mimeType !== "application/msword" &&
+        mimeType !== "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    ) {
+      return res.status(400).json({ error: "Unsupported document type." });
+    }
+    let text = "";
+    try {
+      text = await extractTextFromFile(buffer, mimeType);
+    } catch (err) {
+      console.error("Extraction failed:", err);
+      return res.status(400).json({
+        error: "Failed to extract document. File may be corrupted."
+      });
+    }
     if (!text.trim()) return res.status(400).json({ error: "No extractable text found (maybe scanned PDF?)" });
 
     // 5) chunk
