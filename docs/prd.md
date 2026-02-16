@@ -1,6 +1,7 @@
 **CortexDocs AI – Product Requirements Document**
 ==================================================
 
+![1771238606466](images/prd/1771238606466.png)
 **1\. Product Overview**
 ------------------------
 
@@ -23,6 +24,7 @@ CortexDocs AI solves this by:
 
 **2\. Idea Derivation**
 -----------------------
+
 ### AI Copilots Relaince
 
 The idea originated from the increasing reliance on AI copilots for productivity tasks, combined with the observation that many AI tools hallucinate when answering document-based questions.
@@ -154,18 +156,23 @@ For larger organizations, an enterprise licensing model could position CortexDoc
 -------------------------------------------
 
 ### **1\. Frontend**
+
 The frontend of CortexDocs AI is built using React with Vite as the build tool, styled with Tailwind CSS, and structured using React Router for client-side routing. The Supabase JavaScript client handles authentication and communication with the database. The frontend is responsible for user authentication, managing document uploads and listings, rendering the chat interface, handling modal interactions, and retrieving session tokens to securely communicate with the backend API.
 
 ### **2\. Backend**
+
 The backend is implemented using Node.js with the Express framework. It uses the Supabase Admin client for secure database and storage operations that require elevated privileges. The backend orchestrates the Retrieval-Augmented Generation (RAG) pipeline, manages file ingestion processing, coordinates embedding generation, and integrates with the LLM for response generation. It exposes two primary endpoints: `/chat` for conversational queries and `/documents/ingest` for document processing.
 
 ### **3\. Database**
+
 The database layer is powered by Supabase PostgreSQL. User authentication is managed through Supabase Auth, while application data is stored across structured tables including `documents`, `document_chunks`, `chats`, and `chat_messages`. Vector similarity search is implemented through a PostgreSQL RPC function that enables semantic retrieval of document chunks based on embedding similarity.
 
 ### **4\. AI Components**
+
 The AI components consist of an embedding model (accessed via a Groq or OpenAI-compatible endpoint) and a Large Language Model for answer generation. The system follows a chunk-based retrieval pipeline: document text is split into overlapping chunks, converted into embeddings, stored in the database, and later retrieved through semantic search when a user submits a query.
 
 ### **5\. Deployment**
+
 For deployment, both frontend and backend are containerized using Docker with multi-stage builds to optimize image size. Environment variables are injected at runtime to securely provide API keys and configuration values. The backend service runs on port 8080, while the frontend development server runs on port 5173. This setup supports local development and scalable production deployment.
 
 ### **Architecture Summary Table**
