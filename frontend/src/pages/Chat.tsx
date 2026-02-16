@@ -41,7 +41,6 @@ export default function Chat() {
 
   useEffect(() => {
     scrollToBottom(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, loading]);
 
   async function loadChats(selectFirstIfEmpty = true) {
@@ -70,7 +69,6 @@ export default function Chat() {
 
   useEffect(() => {
     void loadChats(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function updateChatTitle(id: string, title: string) {
@@ -176,7 +174,6 @@ export default function Chat() {
       document.removeEventListener("mousedown", onMouseDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ctxMenu.open, deleteModal.open]);
 
   async function send() {

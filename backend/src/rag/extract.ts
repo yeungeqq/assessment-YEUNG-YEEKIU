@@ -8,7 +8,7 @@ export async function extractTextFromFile(
   if (mimeType === "application/pdf") {
     const loadingTask = (pdfjsLib as any).getDocument({
       data: new Uint8Array(buffer),
-      disableWorker: true, // ✅ Node: no worker needed
+      disableWorker: true,
     });
 
     const pdf = await loadingTask.promise;

@@ -79,10 +79,6 @@ export default function Document() {
   async function downloadDoc(doc: DocRow) {
     setErr(null);
 
-    // Assumes you added this helper to Api.tsx:
-    // export function createDownloadUrl(path: string, seconds: number) {
-    //   return supabase.storage.from("documents").createSignedUrl(path, seconds);
-    // }
     const { data, error } = await API.createDownloadUrl(doc.file_path, 60);
 
     if (error || !data?.signedUrl) {
@@ -99,9 +95,6 @@ export default function Document() {
     setErr(null);
 
     try {
-      // Assumes you added these helpers to Api.tsx:
-      // export function removeStorageFile(path: string) { return supabase.storage.from("documents").remove([path]); }
-      // export function deleteDocumentRow(id: string) { return supabase.from("documents").delete().eq("id", id); }
       const rmStorage = await API.removeStorageFile(toDelete.file_path);
       if (rmStorage.error) throw new Error(rmStorage.error.message);
 
@@ -140,10 +133,6 @@ export default function Document() {
     const up = await API.uploadFileToStorage(filePath, fixedFile);
     if ((up as any)?.error) throw new Error((up as any).error.message);
 
-    // Assumes you added createDocumentRow to Api.tsx:
-    // export function createDocumentRow(row: {user_id:string; title:string; file_path:string; mime_type:string|null;}) {
-    //   return supabase.from("documents").insert(row).select("id").single();
-    // }
     const ins = await API.createDocumentRow({
       user_id: userId,
       title: fixedFile.name,

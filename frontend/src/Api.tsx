@@ -3,9 +3,7 @@ import { supabase } from "./supabaseClient";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL as string;
 
-// ---------------------
 // AUTH
-// ---------------------
 export async function login(email: string, password: string) {
   return supabase.auth.signInWithPassword({ email, password });
 }
@@ -23,9 +21,7 @@ export async function getSessionToken() {
   return data.session?.access_token ?? null;
 }
 
-// ---------------------
 // CHATS
-// ---------------------
 export async function fetchChats() {
   return supabase
     .from("chats")
@@ -50,7 +46,6 @@ export async function createChat(title: string) {
 }
 
 export async function removeChat(chatId: string) {
-  // Delete messages first (unless FK cascade is set)
   await supabase.from("chat_messages").delete().eq("chat_id", chatId);
   return supabase.from("chats").delete().eq("id", chatId);
 }
@@ -82,9 +77,7 @@ export async function sendMessage(chatId: string, message: string) {
   return json as { answer?: string };
 }
 
-// ---------------------
 // DOCUMENTS
-// ---------------------
 export async function fetchDocuments(userId: string) {
   return supabase
     .from("documents")

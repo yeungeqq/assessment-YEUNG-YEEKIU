@@ -9,13 +9,6 @@ import { extractTextFromFile } from "./rag/extract.js";
 import { embedBatch, embedText } from "./rag/embeddings.js";
 import { answerWithSources } from "./rag/llm.js";
 
-type MatchRow = {
-  content: string;
-  document_id: string;
-  chunk_index: number;
-  similarity: number;
-};
-
 const app = express();
 app.use(
   cors({
@@ -64,7 +57,7 @@ app.post("/chat", requireUser, async (req, res) => {
   const userId = req.userId!;
 
   try {
-    // ✅ 1. Ensure chat belongs to user
+    //1. Ensure chat belongs to user
     const { data: chat, error: chatErr } = await supabaseAdmin
       .from("chats")
       .select("id")
@@ -76,7 +69,7 @@ app.post("/chat", requireUser, async (req, res) => {
       return res.status(403).json({ error: "Invalid chat ID" });
     }
 
-    // ✅ 2. Insert user message
+    //2. Insert user message
     await supabaseAdmin.from("chat_messages").insert({
       chat_id: chatId,
       user_id: userId,
@@ -84,7 +77,7 @@ app.post("/chat", requireUser, async (req, res) => {
       content: message,
     });
 
-    // ✅ 3. Generate answer (your existing RAG logic)
+    //3. Generate answer
     const queryEmbedding = await embedText(message);
 
     const { data: matches, error: matchErr } =
@@ -112,7 +105,7 @@ app.post("/chat", requireUser, async (req, res) => {
       answer = await answerWithSources(message, sources);
     }
 
-    // ✅ 4. Insert assistant message
+    //4. Insert assistant message
     await supabaseAdmin.from("chat_messages").insert({
       chat_id: chatId,
       user_id: userId,
@@ -120,7 +113,7 @@ app.post("/chat", requireUser, async (req, res) => {
       content: answer,
     });
 
-    // ✅ 5. Return answer
+    //5. Return answer
     return res.json({ answer });
 
   } catch (e: any) {
@@ -152,7 +145,6 @@ app.post("/documents/ingest", requireUser, async (req, res) => {
 
     if (docErr || !doc) return res.status(404).json({ error: "Document not found or not owned by user" });
     
-    // 🚫 Block ZIP ingestion
     if (!doc.mime_type || doc.mime_type === "application/zip") {
       return res.status(400).json({
         error: "ZIP files are not supported for ingestion. Extract them before uploading."
@@ -205,7 +197,7 @@ app.post("/documents/ingest", requireUser, async (req, res) => {
       vectors.push(...embs);
     }
 
-    // 7) replace previous chunks (re-ingest safe)
+    // 7) replace previous chunks
     await supabaseAdmin.from("document_chunks").delete().eq("document_id", documentId);
 
     const rows = chunks.map((content: string, idx: number) => ({

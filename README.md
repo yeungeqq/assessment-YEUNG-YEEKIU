@@ -7,10 +7,12 @@ The platform integrates secure authentication, document management, semantic sea
 
 CortexDocs AI is designed for university students, professionals, and internal teams who frequently work with long reports, technical documentation, policies, or assessment materials. It transforms static documents into an interactive knowledge system, significantly reducing the time required to locate and understand critical information.
 
-**Run Locally (Without Docker)**
---------------------------------
+For more details of CortexDocs AI, please visit /docs/prd.md to view the Production Requirements Document (PRD).
 
-### **Backend**
+**Local Deployment (Without Docker)**
+-------------------------------------
+
+### **Create Backend Env**
 
 Create backend/.env:
 
@@ -18,9 +20,13 @@ Create backend/.env:
 PORT=8080
 SUPABASE_URL=your_supabase_url
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-GROQ_API_KEY=your_llm_key
 HUGGINGFACEHUB_API_TOKEN=your_embedding_key
+HF_EMBED_MODEL=BAAI/bge-base-en-v1.5
+GROQ_API_KEY=your_llm_key
+GROQ_MODEL=llama-3.1-8b-instant
 ```
+
+Then run the below commands:
 
 ```
 cd backend
@@ -30,7 +36,7 @@ npm run dev
 
 Backend runs at http://localhost:8080
 
-### **Frontend**
+### **Create Frontend Env**
 
 Create frontend/.env:
 
@@ -40,6 +46,8 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 VITE_BACKEND_URL=http://localhost:8080
 ```
 
+Then run the below commands:
+
 ```
 cd frontend
 npm install
@@ -48,8 +56,8 @@ npm run dev
 
 Frontend runs at http://localhost:5173
 
-**Run with Docker**
--------------------
+**Docker Deployment**
+---------------------
 
 Create frontend and backend .env as above. Ensure Docker is installed, then from the project root:
 
