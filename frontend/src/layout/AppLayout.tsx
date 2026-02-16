@@ -29,8 +29,16 @@ export default function AppLayout({ children, authed, onSignOut }: Props) {
       {/* Top Bar */}
       <header className="h-14 bg-[#0d1b55] text-white flex items-center">
         <div className="w-full max-w-7xl mx-auto px-6 flex items-center gap-6">
-          <div className="text-xl font-extrabold tracking-tight">CortexDocs AI</div>
-
+        <div className="flex items-center">
+          <img
+            src="/logo.png"
+            alt="CxD Logo"
+            className="h-8 w-auto object-contain"
+          />
+          <span className="text-xl font-extrabold tracking-tight">
+            CortexDocs AI
+          </span>
+        </div>
           {authed && (
             <nav className="flex items-center gap-2 ml-6">
               {navLink("/chat", "Chat")}

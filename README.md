@@ -1,4 +1,5 @@
 **CortexDocs AI**
+![1771238209638](images/README/1771238209638.png)
 =================
 
 CortexDocs AI is a full-stack AI-powered document intelligence web application that allows users to upload PDF and DOCX documents and interact with them through a conversational interface. Built on a Retrieval-Augmented Generation (RAG) architecture, the system extracts document text, segments it into semantic chunks, generates vector embeddings, and performs similarity-based retrieval to ensure that every response is grounded strictly in user-uploaded content.
@@ -10,45 +11,86 @@ CortexDocs AI is designed for university students, professionals, and internal t
 For more details of CortexDocs AI, please visit /docs/prd.md to view the Production Requirements Document (PRD).
 
 **CortexDocs AI Demo Video**
--------------------------------------
+----------------------------
 
 [![CortexDocs AI Demo](https://img.youtube.com/vi/9bX16EQRSZY/0.jpg)](https://www.youtube.com/watch?v=9bX16EQRSZY)
 
-**Local Deployment (Without Docker)**
--------------------------------------
+**Prerequisites**
+-----------------
 
-### **Create Backend Env**
+Ensure the following software is installed:
+
+- Node.js (v18 or higher)
+- npm (comes with Node)
+- Docker (optional, for containerized deployment)
+- A Supabase account (free tier is sufficient)
+
+**Database and Environment Setup (Required Before Running the App)**
+--------------------------------------------------------------------
+
+CortexDocs AI uses Supabase for authentication, database storage, vector search, and file storage.
+
+**1\. Create a Supabase Project**
+
+1. Go to: https://supabase.com
+2. Create a new project
+3. Wait for the database to finish provisioning
+
+**2\. Run the Database Schema**
+
+1. Open your Supabase project
+2. Navigate to **SQL Editor**
+3. Create a new query
+4. Copy and paste the contents of `/database/schema.sql`
+5. Click **Run**
+
+**3\. Obtain Supabase Project ID and API Keys**
+
+1. Go to Project Settings → General
+2. Copy Project ID and create Project URL using the format: https://{project_id}.supabase.co
+3. Go to Project Settings → API Keys
+4. Create and copy:
+
+   - Publishable Key
+   - Secret Key
+5. Add them to your `.env` files accordingly
+
+Note: The embedding model must match the database vector dimension (768).
+If you change the model, update the vector column dimension accordingly.
+
+**4\. Create Backend Env**
 
 Create backend/.env:
 
 ```
 PORT=8080
 SUPABASE_URL=your_supabase_url
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-HUGGINGFACEHUB_API_TOKEN=your_embedding_key
-HF_EMBED_MODEL=BAAI/bge-base-en-v1.5
+SUPABASE_SECRET_KEY=your_supabase_secret_key
+EMBED_MODEL_API_TOKEN=your_embedding_key
+EMBED_MODEL=BAAI/bge-base-en-v1.5
 GROQ_API_KEY=your_llm_key
 GROQ_MODEL=llama-3.1-8b-instant
 ```
 
-Then run the below commands:
-
-```
-cd backend
-npm install
-npm run dev
-```
-
-Backend runs at http://localhost:8080
-
-### **Create Frontend Env**
+**5\. Create Frontend Env**
 
 Create frontend/.env:
 
 ```
 VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
 VITE_BACKEND_URL=http://localhost:8080
+```
+
+**Local Deployment (Without Docker)**
+-------------------------------------
+
+Run the below commands:
+
+```
+cd backend
+npm install
+npm run dev
 ```
 
 Then run the below commands:
@@ -59,12 +101,12 @@ npm install
 npm run dev
 ```
 
-Frontend runs at http://localhost:5173
+Backend runs at http://localhost:8080, while frontend runs at http://localhost:5173
 
 **Docker Deployment**
 ---------------------
 
-Create frontend and backend .env as above. Ensure Docker is installed, then from the project root:
+Ensure Docker is installed, then from the project root:
 
 ```
 docker compose up --build

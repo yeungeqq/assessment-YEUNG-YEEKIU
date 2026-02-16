@@ -24,17 +24,17 @@ app.use(express.json({ limit: "10mb" }));
 const PORT = Number(process.env.PORT || 8080);
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SECRET_KEY = process.env.SUPABASE_SECRET_KEY;
 
-if (!SUPABASE_URL || !SERVICE_ROLE) {
+if (!SUPABASE_URL || !SECRET_KEY) {
   console.warn(
-    "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY. Set backend/.env before running."
+    "Missing SUPABASE_URL or SUPABASE_SECRET_KEY. Set backend/.env before running."
   );
 }
 
 export const supabaseAdmin = createClient(
   SUPABASE_URL || "http://localhost:54321",
-  SERVICE_ROLE || "missing-service-role-key"
+  SECRET_KEY || "missing-secret-key"
 );
 
 /**

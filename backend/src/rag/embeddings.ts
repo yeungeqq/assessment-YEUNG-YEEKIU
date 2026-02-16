@@ -1,9 +1,9 @@
 import { HuggingFaceInferenceEmbeddings } from "@langchain/community/embeddings/hf";
 
-const token = process.env.HUGGINGFACEHUB_API_TOKEN;
-if (!token) throw new Error("Missing HUGGINGFACEHUB_API_TOKEN");
+const token = process.env.EMBED_MODEL_API_TOKEN;
+if (!token) throw new Error("Missing EMBED_MODEL_API_TOKEN");
 
-const model = process.env.HF_EMBED_MODEL || "BAAI/bge-base-en-v1.5";
+const model = process.env.EMBED_MODEL || "BAAI/bge-base-en-v1.5";
 
 const embeddings = new HuggingFaceInferenceEmbeddings({
   apiKey: token,
