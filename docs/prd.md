@@ -8,7 +8,7 @@
 
 **CortexDocs AI** is an AI-powered document intelligence web application that allows users to upload PDF, DOCX, and ZIP documents and interact with them through a conversational interface.
 
-The system leverages **Retrieval-Augmented Generation (RAG)** to provide contextual, accurate answers grounded strictly in user-uploaded content.
+The system leverages **Retrieval-Augmented Generation (RAG)** to provide contextual, accurate, and precise answers grounded strictly in user-uploaded content.
 
 ### **What problem does it solve?**
 
@@ -139,6 +139,7 @@ AI is not used as a generic chatbot. It is tightly integrated with document-grou
 ----------------------------------
 
 ### **1\. Subscription Model**
+
 A subscription-based model could offer tiered access to the platform. A free tier would allow users to upload a limited number of documents and consume a capped amount of tokens, making it suitable for students or light usage. A Pro tier could unlock higher document limits, larger context windows for AI responses, and increased token usage, catering to power users and professionals who require more advanced capabilities.
 
 ### **2\. Usage-Based Model**
@@ -169,11 +170,12 @@ For deployment, both frontend and backend are containerized using Docker with mu
 
 ### **Architecture Summary Table**
 
-| Layer        | Technology / Tools                          | Key Responsibilities |
-|-------------|----------------------------------------------|----------------------|
-| Frontend    | React (Vite), Tailwind CSS, React Router, Supabase JS | UI rendering, authentication, document management, chat interface, token handling |
-| Backend     | Node.js (Express), Supabase Admin            | RAG orchestration, ingestion processing, embedding & LLM integration |
-| API Routes  | `/chat`, `/documents/ingest`                 | Chat handling and document ingestion |
-| Database    | Supabase PostgreSQL                          | Store documents, chunks, chats, messages, vector search via RPC |
-| AI Layer    | Embedding model + LLM                        | Semantic retrieval and grounded answer generation |
-| Deployment  | Docker (multi-stage), environment variables  | Containerized frontend/backend, runtime configuration |
+
+| Layer      | Technology / Tools                                    | Key Responsibilities                                                              |
+| ---------- | ----------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Frontend   | React (Vite), Tailwind CSS, React Router, Supabase JS | UI rendering, authentication, document management, chat interface, token handling |
+| Backend    | Node.js (Express), Supabase Admin                     | RAG orchestration, ingestion processing, embedding & LLM integration              |
+| API Routes | `/chat`, `/documents/ingest`                          | Chat handling and document ingestion                                              |
+| Database   | Supabase PostgreSQL                                   | Store documents, chunks, chats, messages, vector search via RPC                   |
+| AI Layer   | Embedding model + LLM                                 | Semantic retrieval and grounded answer generation                                 |
+| Deployment | Docker (multi-stage), environment variables           | Containerized frontend/backend, runtime configuration                             |

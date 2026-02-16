@@ -9,6 +9,11 @@ CortexDocs AI is designed for university students, professionals, and internal t
 
 For more details of CortexDocs AI, please visit /docs/prd.md to view the Production Requirements Document (PRD).
 
+**CortexDocs AI Demo Video**
+-------------------------------------
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/9bX16EQRSZY?si=7nLAkX6w9UMRa5-1" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
 **Local Deployment (Without Docker)**
 -------------------------------------
 
