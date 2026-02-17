@@ -15,6 +15,17 @@ For more details of CortexDocs AI, please visit /docs/prd.md to view the Product
 
 [![CortexDocs AI Demo](https://img.youtube.com/vi/Rbnb-_V__vo/0.jpg)](https://youtu.be/Rbnb-_V__vo)
 
+**Tech Stack**
+--------------
+
+
+| Layer    | Technology / Tools                                    |
+| -------- | ----------------------------------------------------- |
+| Frontend | React (Vite), Tailwind CSS, React Router, Supabase JS |
+| Backend  | Node.js (Express), Supabase Admin                     |
+| Database | Supabase PostgreSQL                                   |
+| AI Layer | BAAI/bge-base-en-v1.5 (Embeddings), Llama 3.1 (Groq)  |
+
 **Prerequisites**
 -----------------
 
@@ -44,23 +55,28 @@ CortexDocs AI uses Supabase for authentication, database storage, vector search,
 4. Copy and paste the contents of `/database/schema.sql`
 5. Click **Run**
 
-**3\. Obtain Supabase Project ID and API Keys**
+**3\. Obtain Supabase Project URL and API Keys**
 
-1. Go to Project Settings → General
-2. Copy Project ID and create Project URL using the format: https://{project_id}.supabase.co
+1. Go to Project Overview
+2. Copy Project URL
 3. Go to Project Settings → API Keys
-4. Create and copy:
+4. Copy Publishable Key and Secret Key
+5. Add them to your frontend and backend `.env` files accordingly (see below)
+6. Go to Authentication → Sign In/Providers → toggle off Confirm email → click Save changes*
 
-   - Publishable Key
-   - Secret Key
-5. Add them to your `.env` files accordingly
+**4\. Create Frontend Env**
 
-Note: The embedding model must match the database vector dimension (768).
-If you change the model, update the vector column dimension accordingly.
+Create frontend/.env:
 
-**4\. Create Backend Env**
+```
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
+VITE_BACKEND_URL=http://localhost:8080
+```
 
-Create backend/.env:
+**5\. Create Backend Env**
+
+Create backend/.env**:
 
 ```
 PORT=8080
@@ -72,15 +88,9 @@ GROQ_API_KEY=your_llm_key
 GROQ_MODEL=llama-3.1-8b-instant
 ```
 
-**5\. Create Frontend Env**
+*Note 1: For development simplicity, email confirmation is disabled. In Supabase, go to Autehntication → Sign In/Providers → toggle off Confirm email → click Save changes, and then sign up a new user without confirmation email.
 
-Create frontend/.env:
-
-```
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
-VITE_BACKEND_URL=http://localhost:8080
-```
+**Note 2: The embedding model in backend/.env must match the database vector dimension (768). If you change the model, update the vector column dimension accordingly.
 
 **Local Deployment (Without Docker)**
 -------------------------------------
@@ -88,20 +98,20 @@ VITE_BACKEND_URL=http://localhost:8080
 Run the below commands:
 
 ```
-cd backend
-npm install
-npm run dev
-```
-
-Then run the below commands:
-
-```
 cd frontend
 npm install
 npm run dev
 ```
 
-Backend runs at http://localhost:8080, while frontend runs at http://localhost:5173
+Then run the below commands in a separate terminal:
+
+```
+cd backend
+npm install
+npm run dev
+```
+
+Frontend runs at http://localhost:5173, while backend runs at http://localhost:8080
 
 **Docker Deployment**
 ---------------------
