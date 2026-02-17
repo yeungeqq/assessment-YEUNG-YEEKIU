@@ -1,7 +1,10 @@
 // src/pages/Document.tsx
 import { useEffect, useMemo, useState } from "react";
 import JSZip from "jszip";
+import DownloadButton from "../components/DownloadButton";
+import DeleteButton from "../components/DeleteButton";
 import * as API from "../Api";
+import SortIcon from "../components/SortIcon";
 
 type DocRow = {
   id: string;
@@ -41,6 +44,24 @@ export default function Document() {
   const [deleting, setDeleting] = useState(false);
   const [toDelete, setToDelete] = useState<DocRow | null>(null);
 
+  // Sorting
+  const [sortField, setSortField] = useState<"title" | "created_at" | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
+  function handleSort(field: "title" | "created_at") {
+    if (sortField !== field) {
+      setSortField(field);
+      setSortOrder("asc"); // first click -> ascending
+    } else {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc")); // toggle
+    }
+  }
+
+  function renderSortIcon(field: "title" | "created_at") {
+    if (sortField !== field) return "-";
+    return sortOrder === "asc" ? "▲" : "▼";
+  }
+
   function openDeleteModal(doc: DocRow) {
     setErr(null);
     setToDelete(doc);
@@ -71,10 +92,28 @@ export default function Document() {
   }, []);
 
   const filtered = useMemo(() => {
+    let result = docs;
+
     const needle = q.trim().toLowerCase();
-    if (!needle) return docs;
-    return docs.filter((d) => (d.title ?? "").toLowerCase().includes(needle));
-  }, [docs, q]);
+    if (needle) {
+      result = result.filter((d) => (d.title ?? "").toLowerCase().includes(needle));
+    }
+
+    if (!sortField) return result;
+
+    return [...result].sort((a, b) => {
+      if (sortField === "title") {
+        const A = (a.title ?? "").toLowerCase();
+        const B = (b.title ?? "").toLowerCase();
+        return sortOrder === "asc" ? A.localeCompare(B) : B.localeCompare(A);
+      }
+
+      // created_at
+      const A = new Date(a.created_at).getTime();
+      const B = new Date(b.created_at).getTime();
+      return sortOrder === "asc" ? A - B : B - A;
+    });
+  }, [docs, q, sortField, sortOrder]);
 
   async function downloadDoc(doc: DocRow) {
     setErr(null);
@@ -161,7 +200,6 @@ export default function Document() {
       // CASE 1: ZIP upload (extract-only)
       // --------------------------
       if (isZip(file.name)) {
-        // Read zip as arraybuffer to avoid “end of central directory” issues with some browsers
         const buf = await file.arrayBuffer();
         const zip = await JSZip.loadAsync(buf);
 
@@ -181,16 +219,6 @@ export default function Document() {
 
           return isAllowedDoc(name);
         });
-
-        const invalid = entries.filter((f) => !isAllowedDoc(f.name));
-        if (invalid.length > 0) {
-          const names = invalid.slice(0, 8).map((f) => f.name).join(", ");
-          throw new Error(
-            `ZIP contains unsupported file types. Only PDF/DOC/DOCX allowed. Invalid: ${names}${
-              invalid.length > 8 ? "…" : ""
-            }`
-          );
-        }
 
         const valid = entries.filter((f) => isAllowedDoc(f.name));
         if (valid.length === 0) {
@@ -266,10 +294,31 @@ export default function Document() {
       {/* Table */}
       <div className="mt-6 rounded-md border border-slate-200 bg-white">
         {/* Header */}
-        <div className="grid grid-cols-12 px-6 py-3 text-sm font-semibold text-slate-600 border-b border-slate-200">
-          <div className="col-span-9 text-center">Document Name</div>
-          <div className="col-span-3 text-center">Action</div>
-        </div>
+          <div className="grid grid-cols-12 px-6 py-3 text-sm font-semibold text-slate-600 border-b border-slate-200">
+            <div
+              className="col-span-6 text-center cursor-pointer select-none flex items-center justify-center"
+              onClick={() => handleSort("title")}
+            >
+              Document Name
+              <SortIcon
+                active={sortField === "title"}
+                direction={sortOrder}
+              />
+            </div>
+
+            <div
+              className="col-span-3 text-center cursor-pointer select-none flex items-center justify-center"
+              onClick={() => handleSort("created_at")}
+            >
+              Uploaded Date
+              <SortIcon
+                active={sortField === "created_at"}
+                direction={sortOrder}
+              />
+            </div>
+
+            <div className="col-span-3 text-center">Action</div>
+          </div>
 
         {/* Scroll area */}
         <div className="max-h-[520px] overflow-y-auto">
@@ -283,26 +332,17 @@ export default function Document() {
                 key={d.id}
                 className="grid grid-cols-12 px-6 py-4 border-b border-slate-100 items-center"
               >
-                <div className="col-span-9 text-slate-700 text-sm">
+                <div className="col-span-6 text-slate-700 text-sm">
                   {d.title ?? "Untitled"}
                 </div>
 
-                <div className="col-span-3 flex justify-center gap-3">
-                  <button
-                    onClick={() => void downloadDoc(d)}
-                    className="px-4 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200
-                              hover:bg-emerald-100 text-sm transition"
-                  >
-                    Download
-                  </button>
+                <div className="col-span-3 text-center text-sm text-slate-600">
+                  {new Date(d.created_at).toLocaleString()}
+                </div>
 
-                  <button
-                    onClick={() => openDeleteModal(d)}
-                    className="px-4 py-1.5 rounded-full bg-red-100/60 text-red-700 border border-red-200/70
-                              hover:bg-red-200/70 text-sm transition"
-                  >
-                    Delete
-                  </button>
+                <div className="col-span-3 flex justify-center gap-3">
+                  <DownloadButton onClick={() => void downloadDoc(d)} />
+                  <DeleteButton onClick={() => openDeleteModal(d)} />
                 </div>
               </div>
             ))
@@ -332,7 +372,8 @@ export default function Document() {
             </div>
 
             <p className="mt-2 text-sm text-slate-600">
-              Choose a PDF, Word (DOC/DOCX), or ZIP file to upload. ZIP may contain only PDF/DOC/DOCX.
+              Choose a PDF, Word (DOC/DOCX), or ZIP file to upload. ZIP may contain only
+              PDF/DOC/DOCX.
             </p>
 
             <div className="mt-5">
@@ -356,9 +397,7 @@ export default function Document() {
               </label>
             </div>
 
-            {uploading && (
-              <div className="mt-4 text-sm text-slate-600">Uploading…</div>
-            )}
+            {uploading && <div className="mt-4 text-sm text-slate-600">Uploading…</div>}
 
             <div className="mt-6 flex justify-end gap-2">
               <button

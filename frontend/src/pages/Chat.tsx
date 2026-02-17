@@ -1,5 +1,6 @@
 // src/pages/Chat.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
+import CopyButton from "../components/CopyButton";
 import * as API from "../Api";
 
 type ChatRow = {
@@ -310,16 +311,24 @@ export default function Chat() {
             <div className="space-y-4 max-w-3xl mx-auto">
               {messages.map((m, idx) => {
                 const isUser = m.role === "user";
+
                 return (
-                  <div key={idx} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+                  <div
+                    key={idx}
+                    className={`flex ${isUser ? "justify-end" : "justify-start"}`}
+                  >
                     <div
                       className={[
-                        "max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-6 shadow-sm",
+                        "relative group max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-6 shadow-sm",
                         isUser
                           ? "bg-blue-500 text-white rounded-br-sm"
                           : "bg-white text-slate-800 border border-slate-200 rounded-bl-sm",
                       ].join(" ")}
                     >
+                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition">
+                        <CopyButton text={m.content} />
+                      </div>
+
                       <div className="font-semibold mb-1">
                         {isUser ? "You:" : "CortexDocs AI Assistant:"}
                       </div>

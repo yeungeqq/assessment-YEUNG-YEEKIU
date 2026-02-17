@@ -29,7 +29,7 @@ export default function AppLayout({ children, authed, onSignOut }: Props) {
       {/* Top Bar */}
       <header className="h-14 bg-[#0d1b55] text-white flex items-center">
         <div className="w-full max-w-7xl mx-auto px-6 flex items-center gap-6">
-        <div className="flex items-center">
+        <div className="flex items-center gap-3">
           <img
             src="/logo.png"
             alt="CxD Logo"
