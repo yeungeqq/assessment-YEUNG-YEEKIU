@@ -1,6 +1,7 @@
 **CortexDocs AI**
+=================
+
 ![1771238209638](images/README/1771238209638.png)
-=================================================
 
 CortexDocs AI is a full-stack AI-powered document intelligence web application that allows users to upload PDF and DOCX documents and interact with them through a conversational interface. Built on a Retrieval-Augmented Generation (RAG) architecture, the system extracts document text, segments it into semantic chunks, generates vector embeddings, and performs similarity-based retrieval to ensure that every response is grounded strictly in user-uploaded content.
 
@@ -8,7 +9,7 @@ The platform integrates secure authentication, document management, semantic sea
 
 CortexDocs AI is designed for university students, professionals, and internal teams who frequently work with long reports, technical documentation, policies, or assessment materials. It transforms static documents into an interactive knowledge system, significantly reducing the time required to locate and understand critical information.
 
-For more details of CortexDocs AI, please visit /docs/prd.md to view the Production Requirements Document (PRD).
+For more details of CortexDocs AI, please visit /docs/prd.md to view the Product Requirements Document (PRD).
 
 **CortexDocs AI Demo Video**
 ----------------------------
@@ -62,7 +63,7 @@ CortexDocs AI uses Supabase for authentication, database storage, vector search,
 3. Go to Project Settings → API Keys
 4. Copy Publishable Key and Secret Key
 5. Add them to your frontend and backend `.env` files accordingly (see below)
-6. Go to Authentication → Sign In/Providers → toggle off Confirm email → click Save changes*
+6. Go to Authentication → Sign In/Providers → toggle off Confirm email → click Save changes
 
 **4\. Create Frontend Env**
 
@@ -76,7 +77,7 @@ VITE_BACKEND_URL=http://localhost:8080
 
 **5\. Create Backend Env**
 
-Create backend/.env**:
+Create backend/.env:
 
 ```
 PORT=8080
@@ -88,9 +89,9 @@ GROQ_API_KEY=your_llm_key
 GROQ_MODEL=llama-3.1-8b-instant
 ```
 
-*Note 1: For development simplicity, email confirmation is disabled. In Supabase, go to Autehntication → Sign In/Providers → toggle off Confirm email → click Save changes, and then sign up a new user without confirmation email.
+Note 1: For development simplicity, email confirmation is disabled. In Supabase, go to Authentication → Sign In/Providers → toggle off Confirm email → click Save changes, and then sign up a new user without confirmation email.
 
-**Note 2: The embedding model in backend/.env must match the database vector dimension (768). If you change the model, update the vector column dimension accordingly.
+Note 2: The embedding model in backend/.env must match the database vector dimension (768). If you change the model, update the vector column dimension accordingly.
 
 **Local Deployment (Without Docker)**
 -------------------------------------

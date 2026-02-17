@@ -2,6 +2,7 @@
 ==================================================
 
 ![1771238606466](images/prd/1771238606466.png)
+
 **1\. Product Overview**
 ------------------------
 
@@ -25,13 +26,13 @@ CortexDocs AI solves this by:
 **2\. Idea Derivation**
 -----------------------
 
-### AI Copilots Relaince
+### Growing Reliance on AI Copilots
 
 The idea originated from the increasing reliance on AI copilots for productivity tasks, combined with the observation that many AI tools hallucinate when answering document-based questions.
 
 ### Technical Insight and Validation
 
-With the help of LLM and vector search, it can form a highly practical architecture for document intelligence by combining document chunking, embedding generation, vector similarity retrieval, and controlled answer generation. This structured approach enables accurate, context-aware responses while maintaining scalability and reliability, making it significantly more effective than traditional keyword search or generic chatbot implementations.
+By combining LLMs with vector search, the system establishes a practical and scalable architecture for document intelligence. It integrates document chunking, embedding generation, vector similarity retrieval, and controlled answer generation into a unified pipeline. This structured approach enables accurate, context-aware responses while maintaining scalability and reliability, making it significantly more effective than traditional keyword search or generic chatbot implementations.
 
 ### Product Design Objectives
 
@@ -80,7 +81,7 @@ CortexDocs AI includes secure user authentication powered by Supabase, supportin
 
 #### **2\. Document Upload & Storage**
 
-The platform supports uploading PDF and DOCX files, along with ZIP files for bulk document submission (restricted to valid PDF and DOCX contents). Uploaded files are securely stored in Supabase Storage, while associated metadata such as title, file path, and ownership is recorded in PostgreSQL. This separation ensures secure file handling alongside structured data management.
+The platform supports uploading PDF and DOCX files, along with ZIP files for bulk document submission (restricted to valid PDF and DOCX contents). ZIP extraction and validation occur on the frontend before individual documents are processed by the backend ingestion pipeline. Uploaded files are securely stored in Supabase Storage, while associated metadata such as title, file path, and ownership is recorded in PostgreSQL. This separation ensures secure file handling alongside structured data management.
 
 #### **3\. Document Ingestion Pipeline**
 
@@ -161,7 +162,7 @@ The frontend of CortexDocs AI is built using React with Vite as the build tool, 
 
 ### **2\. Backend**
 
-The backend is implemented using Node.js with the Express framework. It uses the Supabase Admin client for secure database and storage operations that require elevated privileges. The backend orchestrates the Retrieval-Augmented Generation (RAG) pipeline, manages file ingestion processing, coordinates embedding generation, and integrates with the LLM for response generation. It exposes two primary endpoints: `/chat` for conversational queries and `/documents/ingest` for document processing.
+The backend is implemented using Node.js with the Express framework. It uses the Supabase Admin client for secure database and storage operations that require elevated privileges. The backend orchestrates the Retrieval-Augmented Generation (RAG) pipeline, manages file ingestion processing, coordinates embedding generation, and integrates with the LLM for response generation. It exposes two primary endpoints: `/chat` for conversational queries and `/documents/ingest` for document processing. All document and chat operations enforce strict ownership validation to prevent cross-user access.
 
 ### **3\. Database**
 
@@ -169,7 +170,17 @@ The database layer is powered by Supabase PostgreSQL. User authentication is man
 
 ### **4\. AI Components**
 
-The AI components consist of an embedding model (accessed via a Groq or OpenAI-compatible endpoint) and a Large Language Model for answer generation. The system follows a chunk-based retrieval pipeline: document text is split into overlapping chunks, converted into embeddings, stored in the database, and later retrieved through semantic search when a user submits a query.
+The AI components consist of an embedding model (accessed via a Groq or OpenAI-compatible endpoint) and a Large Language Model for answer generation. The system follows a chunk-based retrieval pipeline: document text is split into overlapping chunks, converted into embeddings, stored in the database, and later retrieved through semantic search when a user submits a query. Below are key configuration specifications used in this demo:
+
+- Chunk size: 1200 characters (approximate token equivalent around 600–800 tokens depending on text)
+- Overlap: 200 characters
+- Maximum chunks per document: 80
+- Embedding model: BAAI/bge-base-en-v1.5 (768 dimensions)
+- Vector index: ivfflat with cosine similarity
+- Retrieval: Top-6 chunk similarity matching
+- LLM model: llama-3.1-8b-instant
+- LLM temperature: 0.1 to reduce hallucination
+- Context truncation: 2000 characters before generation
 
 ### **5\. Deployment**
 
