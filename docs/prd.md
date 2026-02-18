@@ -54,7 +54,7 @@ The target audiences share common characteristics: they regularly engage with lo
 
 ### **1\. Manual Document Scanning**
 
-Users often work with long PDFs, research papers, technical specifications, or policy documents that can span dozens or even hundreds of pages. Finding specific information typically requires scrolling, skimming, and repeatedly using keyword search functions that may not capture contextual meaning. This process is time-consuming, mentally exhausting, and inefficient—especially when deadlines are tight or when users need to compare multiple sections of a document. Traditional document viewers are not designed for intelligent information retrieval, forcing users to rely heavily on manual effort.
+Users often work with long PDFs, research papers, technical specifications, or policy documents that can span dozens or even hundreds of pages. Finding specific information typically requires scrolling, skimming, and repeatedly using keyword search functions that may not capture contextual meaning. This process is time-consuming, mentally exhausting, and inefficient, especially when deadlines are tight or when users need to compare multiple sections of a document. Traditional document viewers are not designed for intelligent information retrieval, forcing users to rely heavily on manual effort.
 
 ### **2\. Poor AI Grounding**
 
