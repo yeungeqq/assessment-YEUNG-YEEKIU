@@ -18,7 +18,11 @@ export async function getCurrentUser() {
 
 export async function getSessionToken() {
   const { data } = await supabase.auth.getSession();
-  return data.session?.access_token ?? null;
+  const token = data.session?.access_token ?? null;
+  if (token) return token;
+
+  const refreshed = await supabase.auth.refreshSession();
+  return refreshed.data.session?.access_token ?? null;
 }
 
 // CHATS
