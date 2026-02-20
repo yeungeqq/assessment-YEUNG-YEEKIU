@@ -3,7 +3,7 @@
 
 ![1771238209638](images/README/1771238209638.png)
 
-CortexDocs AI is a full-stack AI-powered document intelligence web application that allows users to upload PDF and DOCX documents and interact with them through a conversational interface. Built on a Retrieval-Augmented Generation (RAG) architecture, the system extracts document text, segments it into semantic chunks, generates vector embeddings, and performs similarity-based retrieval to ensure that every response is grounded strictly in user-uploaded content.
+CortexDocs AI is a full-stack AI-powered document intelligence web application that allows users to upload PDF, DOC, and DOCX documents and interact with them through a conversational interface. Built on a Retrieval-Augmented Generation (RAG) architecture, the system extracts document text, segments it into semantic chunks, generates vector embeddings, and performs similarity-based retrieval to ensure that every response is grounded strictly in user-uploaded content.
 
 The platform integrates secure authentication, document management, semantic search, and conversational AI into a single streamlined workflow. Users can upload individual files or bulk ZIP archives, manage stored documents, and ask contextual follow-up questions within a persistent chat interface. By combining vector search with controlled LLM prompting, CortexDocs AI minimizes hallucination and delivers accurate, document-backed answers.
 

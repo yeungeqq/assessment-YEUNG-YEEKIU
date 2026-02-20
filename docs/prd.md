@@ -81,11 +81,11 @@ CortexDocs AI includes secure user authentication powered by Supabase, supportin
 
 #### **2\. Document Upload & Storage**
 
-The platform supports uploading PDF and DOCX files, along with ZIP files for bulk document submission (restricted to valid PDF and DOCX contents). ZIP extraction and validation occur on the frontend before individual documents are processed by the backend ingestion pipeline. Uploaded files are securely stored in Supabase Storage, while associated metadata such as title, file path, and ownership is recorded in PostgreSQL. This separation ensures secure file handling alongside structured data management.
+The platform supports uploading PDF, DOC, and DOCX files, along with ZIP files for bulk document submission (restricted to valid PDF, DOC, and DOCX contents). ZIP extraction and validation occur on the frontend before individual documents are processed by the backend ingestion pipeline. Uploaded files are securely stored in Supabase Storage, while associated metadata such as title, file path, and ownership is recorded in PostgreSQL. This separation ensures secure file handling alongside structured data management.
 
 #### **3\. Document Ingestion Pipeline**
 
-After upload, documents pass through an ingestion pipeline that extracts raw text (PDF and DOCX supported), segments it into overlapping chunks, and generates vector embeddings for each chunk. These embeddings are stored in the database to enable semantic retrieval. The overlapping chunk strategy improves contextual continuity during retrieval and response generation.
+After upload, documents pass through an ingestion pipeline that extracts raw text (PDF, DOC, and DOCX supported), segments it into overlapping chunks, and generates vector embeddings for each chunk. These embeddings are stored in the database to enable semantic retrieval. The overlapping chunk strategy improves contextual continuity during retrieval and response generation.
 
 #### **4\. Semantic Search (RAG)**
 
@@ -109,8 +109,8 @@ Future improvements may include multi-document selection for scoped querying, a 
 | Category     | Feature                     | Description                                                                                  |
 | ------------ | --------------------------- | -------------------------------------------------------------------------------------------- |
 | Must-Have    | User Authentication         | Secure login/signup, session persistence, and protected routes.                              |
-| Must-Have    | Document Upload & Storage   | PDF/DOCX and ZIP support, secure storage, and metadata persistence.                          |
-| Must-Have    | Document Ingestion Pipeline | Text extraction, chunking, embedding generation, and vector storage.                         |
+| Must-Have    | Document Upload & Storage   | PDF/DOC/DOCX and ZIP support, secure storage, and metadata persistence.                      |
+| Must-Have    | Document Ingestion Pipeline | Text extraction from PDF/DOC/DOCX, chunking, embedding generation, and vector storage.       |
 | Must-Have    | Semantic Search (RAG)       | Query embedding, similarity matching, and grounded response generation.                      |
 | Must-Have    | Chat Interface              | Scrollable chat UI with token authentication, history persistence, and error/loading states. |
 | Must-Have    | Persistent Document Table   | Searchable document list with download support and modal upload UI.                          |
@@ -162,7 +162,7 @@ The frontend of CortexDocs AI is built using React with Vite as the build tool, 
 
 ### **2\. Backend**
 
-The backend is implemented using Node.js with the Express framework. It uses the Supabase Admin client for secure database and storage operations that require elevated privileges. The backend orchestrates the Retrieval-Augmented Generation (RAG) pipeline, manages file ingestion processing, coordinates embedding generation, and integrates with the LLM for response generation. It exposes two primary endpoints: `/chat` for conversational queries and `/documents/ingest` for document processing. All document and chat operations enforce strict ownership validation to prevent cross-user access.
+The backend is implemented using Node.js with the Express framework. It uses a layered structure with controllers (HTTP handling), services (business logic), repositories (Supabase data access), and middleware (auth checks). It uses the Supabase Admin client for secure database and storage operations that require elevated privileges. The backend orchestrates the Retrieval-Augmented Generation (RAG) pipeline, manages file ingestion processing, coordinates embedding generation, and integrates with the LLM for response generation. It exposes two primary endpoints: `/chat` for conversational queries and `/documents/ingest` for document processing. All document and chat operations enforce strict ownership validation to prevent cross-user access.
 
 ### **3\. Database**
 
@@ -170,7 +170,7 @@ The database layer is powered by Supabase PostgreSQL. User authentication is man
 
 ### **4\. AI Components**
 
-The AI components consist of an embedding model (accessed via a Groq or OpenAI-compatible endpoint) and a Large Language Model for answer generation. The system follows a chunk-based retrieval pipeline: document text is split into overlapping chunks, converted into embeddings, stored in the database, and later retrieved through semantic search when a user submits a query. Below are key configuration specifications used in this demo:
+The AI components consist of an embedding model (accessed via Hugging Face Inference API or OpenAI-compatible endpoint) and a Large Language Model for answer generation (via Groq). The system follows a chunk-based retrieval pipeline: document text is split into overlapping chunks, converted into embeddings, stored in the database, and later retrieved through semantic search when a user submits a query. Below are key configuration specifications used in this demo:
 
 - Chunk size: 1200 characters (approximate token equivalent around 600–800 tokens depending on text)
 - Overlap: 200 characters
