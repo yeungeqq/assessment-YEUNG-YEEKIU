@@ -2,5 +2,9 @@ node_modules
 dist
 .env
 .env.*
+!.env.example
 *.log
 .DS_Store
+*.tsbuildinfo
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/

@@ -138,6 +138,35 @@ $$;
 ALTER FUNCTION "public"."match_chunks_json"("query_embedding" "jsonb", "match_count" integer) OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."match_project_chunks_json"("query_embedding" "jsonb", "match_count" integer, "target_project_id" "uuid") RETURNS TABLE("content" "text", "document_id" "uuid", "chunk_index" integer, "similarity" double precision)
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+  with q as (
+    select (
+      '[' ||
+      string_agg(elem, ',') ||
+      ']'
+    )::vector as v
+    from jsonb_array_elements_text(query_embedding) as t(elem)
+  )
+  select
+    dc.content,
+    dc.document_id,
+    dc.chunk_index,
+    1 - (dc.embedding <=> q.v) as similarity
+  from public.document_chunks dc
+  join public.documents d on d.id = dc.document_id
+  cross join q
+  where d.project_id = target_project_id
+  order by dc.embedding <=> q.v
+  limit match_count;
+$$;
+
+
+ALTER FUNCTION "public"."match_project_chunks_json"("query_embedding" "jsonb", "match_count" integer, "target_project_id" "uuid") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."match_chunks_text"("query_embedding" "text", "match_count" integer) RETURNS TABLE("content" "text", "document_id" "uuid", "chunk_index" integer, "similarity" double precision)
     LANGUAGE "sql" STABLE
     AS $$
@@ -188,9 +217,38 @@ CREATE TABLE IF NOT EXISTS "public"."chat_messages" (
 ALTER TABLE "public"."chat_messages" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."projects" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid" DEFAULT "auth"."uid"(),
+    "name" "text" NOT NULL,
+    "description" "text",
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."projects" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."folders" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "project_id" "uuid" NOT NULL,
+    "user_id" "uuid" DEFAULT "auth"."uid"(),
+    "name" "text" NOT NULL,
+    "parent_folder_id" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."folders" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."chats" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "user_id" "uuid" DEFAULT "auth"."uid"(),
+    "project_id" "uuid",
+    "folder_id" "uuid",
     "title" "text",
     "created_at" timestamp with time zone DEFAULT "now"(),
     "updated_at" timestamp without time zone DEFAULT "now"()
@@ -216,6 +274,8 @@ ALTER TABLE "public"."document_chunks" OWNER TO "postgres";
 CREATE TABLE IF NOT EXISTS "public"."documents" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "user_id" "uuid",
+    "project_id" "uuid",
+    "folder_id" "uuid",
     "title" "text" NOT NULL,
     "file_path" "text" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"(),
@@ -228,6 +288,14 @@ ALTER TABLE "public"."documents" OWNER TO "postgres";
 
 ALTER TABLE ONLY "public"."chat_messages"
     ADD CONSTRAINT "chat_messages_pkey" PRIMARY KEY ("id");
+
+
+ALTER TABLE ONLY "public"."projects"
+    ADD CONSTRAINT "projects_pkey" PRIMARY KEY ("id");
+
+
+ALTER TABLE ONLY "public"."folders"
+    ADD CONSTRAINT "folders_pkey" PRIMARY KEY ("id");
 
 
 
@@ -253,6 +321,27 @@ CREATE INDEX "chat_messages_chat_id_idx" ON "public"."chat_messages" USING "btre
 CREATE INDEX "chat_messages_user_id_idx" ON "public"."chat_messages" USING "btree" ("user_id");
 
 
+CREATE INDEX "projects_user_id_idx" ON "public"."projects" USING "btree" ("user_id");
+
+
+CREATE INDEX "folders_project_id_idx" ON "public"."folders" USING "btree" ("project_id");
+
+
+CREATE INDEX "folders_user_id_idx" ON "public"."folders" USING "btree" ("user_id");
+
+
+CREATE INDEX "chats_project_id_idx" ON "public"."chats" USING "btree" ("project_id");
+
+
+CREATE INDEX "chats_folder_id_idx" ON "public"."chats" USING "btree" ("folder_id");
+
+
+CREATE INDEX "documents_project_id_idx" ON "public"."documents" USING "btree" ("project_id");
+
+
+CREATE INDEX "documents_folder_id_idx" ON "public"."documents" USING "btree" ("folder_id");
+
+
 
 CREATE INDEX "document_chunks_embedding_idx" ON "public"."document_chunks" USING "ivfflat" ("embedding" "public"."vector_cosine_ops");
 
@@ -271,14 +360,46 @@ ALTER TABLE ONLY "public"."chat_messages"
     ADD CONSTRAINT "chat_messages_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
 
 
+ALTER TABLE ONLY "public"."projects"
+    ADD CONSTRAINT "projects_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+ALTER TABLE ONLY "public"."folders"
+    ADD CONSTRAINT "folders_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE CASCADE;
+
+
+ALTER TABLE ONLY "public"."folders"
+    ADD CONSTRAINT "folders_parent_folder_id_fkey" FOREIGN KEY ("parent_folder_id") REFERENCES "public"."folders"("id") ON DELETE CASCADE;
+
+
+ALTER TABLE ONLY "public"."folders"
+    ADD CONSTRAINT "folders_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
 
 ALTER TABLE ONLY "public"."chats"
     ADD CONSTRAINT "chats_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
 
 
+ALTER TABLE ONLY "public"."chats"
+    ADD CONSTRAINT "chats_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE SET NULL;
+
+
+ALTER TABLE ONLY "public"."chats"
+    ADD CONSTRAINT "chats_folder_id_fkey" FOREIGN KEY ("folder_id") REFERENCES "public"."folders"("id") ON DELETE SET NULL;
+
+
 
 ALTER TABLE ONLY "public"."document_chunks"
     ADD CONSTRAINT "document_chunks_document_id_fkey" FOREIGN KEY ("document_id") REFERENCES "public"."documents"("id") ON DELETE CASCADE;
+
+
+ALTER TABLE ONLY "public"."documents"
+    ADD CONSTRAINT "documents_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE SET NULL;
+
+
+ALTER TABLE ONLY "public"."documents"
+    ADD CONSTRAINT "documents_folder_id_fkey" FOREIGN KEY ("folder_id") REFERENCES "public"."folders"("id") ON DELETE SET NULL;
 
 
 
@@ -291,6 +412,12 @@ ALTER TABLE "public"."chat_messages" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."chats" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."projects" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."folders" ENABLE ROW LEVEL SECURITY;
 
 
 CREATE POLICY "chats_delete_own" ON "public"."chats" FOR DELETE USING (("auth"."uid"() = "user_id"));
@@ -306,6 +433,32 @@ CREATE POLICY "chats_select_own" ON "public"."chats" FOR SELECT USING (("auth"."
 
 
 CREATE POLICY "chats_update_own" ON "public"."chats" FOR UPDATE USING (("auth"."uid"() = "user_id")) WITH CHECK (("auth"."uid"() = "user_id"));
+
+
+CREATE POLICY "projects_delete_own" ON "public"."projects" FOR DELETE TO "authenticated" USING (("auth"."uid"() = "user_id"));
+
+
+CREATE POLICY "projects_insert_own" ON "public"."projects" FOR INSERT TO "authenticated" WITH CHECK (("auth"."uid"() = "user_id"));
+
+
+CREATE POLICY "projects_select_own" ON "public"."projects" FOR SELECT TO "authenticated" USING (("auth"."uid"() = "user_id"));
+
+
+CREATE POLICY "projects_update_own" ON "public"."projects" FOR UPDATE TO "authenticated" USING (("auth"."uid"() = "user_id")) WITH CHECK (("auth"."uid"() = "user_id"));
+
+
+CREATE POLICY "folders_delete_own" ON "public"."folders" FOR DELETE TO "authenticated" USING (("auth"."uid"() = "user_id"));
+
+
+CREATE POLICY "folders_insert_own" ON "public"."folders" FOR INSERT TO "authenticated" WITH CHECK ((("auth"."uid"() = "user_id") AND (EXISTS ( SELECT 1
+   FROM "public"."projects" "p"
+  WHERE (("p"."id" = "folders"."project_id") AND ("p"."user_id" = "auth"."uid"()))))));
+
+
+CREATE POLICY "folders_select_own" ON "public"."folders" FOR SELECT TO "authenticated" USING (("auth"."uid"() = "user_id"));
+
+
+CREATE POLICY "folders_update_own" ON "public"."folders" FOR UPDATE TO "authenticated" USING (("auth"."uid"() = "user_id")) WITH CHECK (("auth"."uid"() = "user_id"));
 
 
 
@@ -1125,6 +1278,11 @@ GRANT ALL ON FUNCTION "public"."match_chunks_json"("query_embedding" "jsonb", "m
 GRANT ALL ON FUNCTION "public"."match_chunks_json"("query_embedding" "jsonb", "match_count" integer) TO "service_role";
 
 
+GRANT ALL ON FUNCTION "public"."match_project_chunks_json"("query_embedding" "jsonb", "match_count" integer, "target_project_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."match_project_chunks_json"("query_embedding" "jsonb", "match_count" integer, "target_project_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."match_project_chunks_json"("query_embedding" "jsonb", "match_count" integer, "target_project_id" "uuid") TO "service_role";
+
+
 
 GRANT ALL ON FUNCTION "public"."match_chunks_text"("query_embedding" "text", "match_count" integer) TO "anon";
 GRANT ALL ON FUNCTION "public"."match_chunks_text"("query_embedding" "text", "match_count" integer) TO "authenticated";
@@ -1401,6 +1559,16 @@ GRANT ALL ON FUNCTION "public"."sum"("public"."vector") TO "service_role";
 GRANT ALL ON TABLE "public"."chat_messages" TO "anon";
 GRANT ALL ON TABLE "public"."chat_messages" TO "authenticated";
 GRANT ALL ON TABLE "public"."chat_messages" TO "service_role";
+
+
+GRANT ALL ON TABLE "public"."projects" TO "anon";
+GRANT ALL ON TABLE "public"."projects" TO "authenticated";
+GRANT ALL ON TABLE "public"."projects" TO "service_role";
+
+
+GRANT ALL ON TABLE "public"."folders" TO "anon";
+GRANT ALL ON TABLE "public"."folders" TO "authenticated";
+GRANT ALL ON TABLE "public"."folders" TO "service_role";
 
 
 

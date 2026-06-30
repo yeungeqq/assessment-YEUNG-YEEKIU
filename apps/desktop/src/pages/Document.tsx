@@ -1,5 +1,6 @@
 // src/pages/Document.tsx
 import { useEffect, useMemo, useState } from "react";
+import { useParams } from "react-router-dom";
 import JSZip from "jszip";
 import DownloadButton from "../components/DownloadButton";
 import DeleteButton from "../components/DeleteButton";
@@ -11,6 +12,8 @@ type DocRow = {
   title: string | null;
   file_path: string;
   created_at: string;
+  project_id?: string | null;
+  folder_id?: string | null;
 };
 
 function inferMimeType(name: string) {
@@ -32,6 +35,7 @@ function isZip(name: string) {
 }
 
 export default function Document() {
+  const { projectId } = useParams<{ projectId?: string }>();
   const [docs, setDocs] = useState<DocRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
@@ -57,11 +61,6 @@ export default function Document() {
     }
   }
 
-  function renderSortIcon(field: "title" | "created_at") {
-    if (sortField !== field) return "-";
-    return sortOrder === "asc" ? "▲" : "▼";
-  }
-
   function openDeleteModal(doc: DocRow) {
     setErr(null);
     setToDelete(doc);
@@ -72,15 +71,7 @@ export default function Document() {
     setLoading(true);
     setErr(null);
 
-    const { data: userData, error: userErr } = await API.getCurrentUser();
-    if (userErr || !userData.user) {
-      setErr("Not logged in.");
-      setLoading(false);
-      return;
-    }
-
-    const userId = userData.user.id;
-    const { data, error } = await API.fetchDocuments(userId);
+    const { data, error } = await API.fetchDocuments(projectId);
     if (error) setErr(error.message);
 
     setDocs((data ?? []) as DocRow[]);
@@ -89,7 +80,7 @@ export default function Document() {
 
   useEffect(() => {
     void loadDocs();
-  }, []);
+  }, [projectId]);
 
   const filtered = useMemo(() => {
     let result = docs;
@@ -118,7 +109,7 @@ export default function Document() {
   async function downloadDoc(doc: DocRow) {
     setErr(null);
 
-    const { data, error } = await API.createDownloadUrl(doc.file_path, 60);
+    const { data, error } = await API.createDownloadUrl(doc.id);
 
     if (error || !data?.signedUrl) {
       setErr(error?.message ?? "Failed to create download link.");
@@ -134,9 +125,6 @@ export default function Document() {
     setErr(null);
 
     try {
-      const rmStorage = await API.removeStorageFile(toDelete.file_path);
-      if (rmStorage.error) throw new Error(rmStorage.error.message);
-
       const rmDoc = await API.deleteDocumentRow(toDelete.id);
       if (rmDoc.error) throw new Error(rmDoc.error.message);
 
@@ -150,7 +138,7 @@ export default function Document() {
     }
   }
 
-  async function ingestOneFile(userId: string, file: File) {
+  async function ingestOneFile(file: File) {
     // Guard: never allow zip to be uploaded/ingested as a document
     if (file.name.toLowerCase().endsWith(".zip")) {
       throw new Error("ZIP files cannot be uploaded as a document.");
@@ -164,26 +152,18 @@ export default function Document() {
     const mime = file.type || inferMimeType(file.name);
     const fixedFile = mime ? new File([file], file.name, { type: mime }) : file;
 
-    const safeName = fixedFile.name.replace(/\s+/g, "_");
-    const filePath = `${userId}/${Date.now()}_${Math.random()
-      .toString(36)
-      .slice(2)}_${safeName}`;
-
-    const up = await API.uploadFileToStorage(filePath, fixedFile);
-    if ((up as any)?.error) throw new Error((up as any).error.message);
-
-    const ins = await API.createDocumentRow({
-      user_id: userId,
+    const upload = await API.uploadDocumentFile({
+      file: fixedFile,
+      projectId: projectId ?? null,
       title: fixedFile.name,
-      file_path: filePath,
-      mime_type: fixedFile.type || null,
+      mimeType: fixedFile.type || null,
     });
 
-    if ((ins as any)?.error || !(ins as any)?.data?.id) {
-      throw new Error((ins as any)?.error?.message ?? "Failed to create document record.");
+    if (upload.error || !upload.data?.id) {
+      throw new Error(upload.error?.message ?? "Failed to upload document.");
     }
 
-    await API.callIngest((ins as any).data.id);
+    await API.callIngest(upload.data.id, projectId);
   }
 
   async function onUpload(file: File) {
@@ -191,11 +171,6 @@ export default function Document() {
     setErr(null);
 
     try {
-      const { data: userData, error: userErr } = await API.getCurrentUser();
-      if (userErr || !userData.user) throw new Error("Not logged in.");
-
-      const userId = userData.user.id;
-
       // --------------------------
       // CASE 1: ZIP upload (extract-only)
       // --------------------------
@@ -236,7 +211,7 @@ export default function Document() {
             type: inferMimeType(baseName) || "application/octet-stream",
           });
 
-          await ingestOneFile(userId, extracted);
+          await ingestOneFile(extracted);
         }
 
         setOpen(false);
@@ -251,7 +226,7 @@ export default function Document() {
         throw new Error("Only PDF, DOC, DOCX, or ZIP files are allowed.");
       }
 
-      await ingestOneFile(userId, file);
+      await ingestOneFile(file);
 
       setOpen(false);
       await loadDocs();
@@ -270,7 +245,7 @@ export default function Document() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="search files here..."
+            placeholder={projectId ? "Search project documents..." : "Search files here..."}
             className="w-full h-10 rounded-full bg-indigo-100/60 px-5 text-sm text-slate-700 placeholder:text-slate-400
                        border border-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
@@ -280,7 +255,7 @@ export default function Document() {
           onClick={() => setOpen(true)}
           className="h-10 px-5 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-semibold transition"
         >
-          Upload documents
+          Upload Document
         </button>
       </div>
 
@@ -370,11 +345,6 @@ export default function Document() {
                 ✕
               </button>
             </div>
-
-            <p className="mt-2 text-sm text-slate-600">
-              Choose a PDF, Word (DOC/DOCX), or ZIP file to upload. ZIP may contain only
-              PDF/DOC/DOCX.
-            </p>
 
             <div className="mt-5">
               <label className="block">

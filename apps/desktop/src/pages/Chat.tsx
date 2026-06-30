@@ -1,5 +1,6 @@
 // src/pages/Chat.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams } from "react-router-dom";
 import CopyButton from "../components/CopyButton";
 import * as API from "../Api";
 
@@ -7,6 +8,7 @@ type ChatRow = {
   id: string;
   title: string | null;
   updated_at: string;
+  project_id?: string | null;
 };
 
 type MsgRow = {
@@ -26,6 +28,7 @@ function summarizeTitle(text: string) {
 }
 
 export default function Chat() {
+  const { projectId } = useParams<{ projectId?: string }>();
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<MsgRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +50,7 @@ export default function Chat() {
   async function loadChats(selectFirstIfEmpty = true) {
     setError(null);
 
-    const { data, error } = await API.fetchChats();
+    const { data, error } = await API.fetchChats(projectId);
     if (error) return setError(error.message);
 
     const rows = (data ?? []) as ChatRow[];
@@ -69,8 +72,10 @@ export default function Chat() {
   }
 
   useEffect(() => {
+    setChatId(null);
+    setMessages([]);
     void loadChats(true);
-  }, []);
+  }, [projectId]);
 
   async function updateChatTitle(id: string, title: string) {
     const { data, error } = await API.updateChatTitle(id, title);
@@ -84,7 +89,7 @@ export default function Chat() {
   async function createChatWithTitle(title: string) {
     setError(null);
 
-    const { data, error } = await API.createChat(title);
+    const { data, error } = await API.createChat(title, projectId);
     if (error || !data) throw new Error(error?.message ?? "Failed to create chat");
 
     const row = data as ChatRow;
@@ -210,7 +215,7 @@ export default function Chat() {
         void loadChats(false);
       }
 
-      const json = await API.sendMessage(activeChatId, userMsg.content);
+      const json = await API.sendMessage(activeChatId, userMsg.content, projectId);
 
       setMessages((prev) => [
         ...prev,
@@ -242,7 +247,7 @@ export default function Chat() {
             onClick={createChat}
           >
             <span className="text-lg leading-none">+</span>
-            Create New Chat
+            {projectId ? "New Project Chat" : "Create New Chat"}
           </button>
         </div>
 
@@ -352,7 +357,11 @@ export default function Chat() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter") void send();
                   }}
-                  placeholder="Enter enquiries here...."
+                  placeholder={
+                    projectId
+                      ? "Ask about this project's documents..."
+                      : "Enter enquiries here...."
+                  }
                   className="w-full h-14 rounded-full border border-slate-200 bg-white px-6 pr-14 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <button

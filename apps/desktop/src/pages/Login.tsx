@@ -1,12 +1,13 @@
-// src/pages/Signup.tsx
+// src/pages/Login.tsx
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import * as API from "../Api";
 
-export default function Signup() {
+export default function Login({ onAuthed }: { onAuthed?: () => void }) {
   const nav = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -15,12 +16,14 @@ export default function Signup() {
     setErr(null);
     setLoading(true);
 
-    const { error } = await API.signup(email, password);
+    const { error } = await API.login(email, password);
 
     setLoading(false);
     if (error) return setErr(error.message);
 
-    nav("/chat");
+    void remember;
+    onAuthed?.();
+    nav("/dashboard", { replace: true });
   }
 
   return (
@@ -36,7 +39,10 @@ export default function Signup() {
             />
           </div>
         </div>
-        <h1 className="text-3xl font-extrabold text-center text-slate-800">Sign Up</h1>
+
+        <h1 className="text-3xl font-extrabold text-center text-slate-800">
+          Log In
+        </h1>
 
         <form className="mt-8 space-y-5" onSubmit={onSubmit}>
           <div>
@@ -67,7 +73,21 @@ export default function Signup() {
                 required
               />
             </div>
+
+            <p className="text-xs text-slate-500 mt-2">
+              It must be a combination of minimum 8 letters, numbers, and symbols.
+            </p>
           </div>
+
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300"
+            />
+            Remember me
+          </label>
 
           {err && (
             <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3">
@@ -79,13 +99,13 @@ export default function Signup() {
             disabled={loading}
             className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm transition disabled:opacity-60"
           >
-            {loading ? "Signing up..." : "Sign Up"}
+            {loading ? "Logging in..." : "Log In"}
           </button>
 
           <div className="pt-4 border-t border-slate-200 text-center text-sm text-slate-600">
-            Already have an account?{" "}
-            <Link to="/login" className="text-blue-600 font-semibold hover:underline">
-              Log In
+            No account yet?{" "}
+            <Link to="/signup" className="text-blue-600 font-semibold hover:underline">
+              Sign Up
             </Link>
           </div>
         </form>

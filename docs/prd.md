@@ -36,7 +36,7 @@ By combining LLMs with vector search, the system establishes a practical and sca
 
 ### Product Design Objectives
 
-CortexDocs AI was intentionally designed to demonstrate strong full-stack engineering capabilities alongside meaningful AI integration. Rather than building a generic conversational interface, the system emphasizes grounded AI usage, persistent data management, secure user authentication, and clear architectural separation between frontend, backend, database, and AI components. This ensures the product reflects real-world engineering standards and production-ready design principles.
+CortexDocs AI was intentionally designed to demonstrate strong full-stack engineering capabilities alongside meaningful AI integration. Rather than building a generic conversational interface, the system emphasizes grounded AI usage, persistent data management, secure user authentication, and clear architectural separation between desktop UI, backend, database, and AI components. This ensures the product reflects real-world engineering standards and production-ready design principles.
 
 **3\. Target Audience**
 -----------------------
@@ -77,11 +77,11 @@ CortexDocs AI addresses the above challenges by persistently storing user docume
 
 #### **1\. User Authentication**
 
-CortexDocs AI includes secure user authentication powered by Supabase, supporting both login and signup functionality. User sessions are persisted to ensure seamless access across visits, and protected routes safeguard sensitive pages such as the Chat and Documents sections. This ensures that each user’s documents and conversations remain private and securely isolated.
+CortexDocs AI includes secure local authentication powered by the backend and PostgreSQL, supporting both login and signup functionality. User sessions are persisted to ensure seamless access across visits, and protected routes safeguard sensitive pages such as project documents and copilot conversations. This ensures that each user’s documents and conversations remain private and securely isolated.
 
 #### **2\. Document Upload & Storage**
 
-The platform supports uploading PDF, DOC, and DOCX files, along with ZIP files for bulk document submission (restricted to valid PDF, DOC, and DOCX contents). ZIP extraction and validation occur on the frontend before individual documents are processed by the backend ingestion pipeline. Uploaded files are securely stored in Supabase Storage, while associated metadata such as title, file path, and ownership is recorded in PostgreSQL. This separation ensures secure file handling alongside structured data management.
+The platform supports uploading PDF, DOC, and DOCX files, along with ZIP files for bulk document submission (restricted to valid PDF, DOC, and DOCX contents). ZIP extraction and validation occur in the desktop UI before individual documents are processed by the backend ingestion pipeline. Uploaded files are stored in Cloudflare R2, while associated metadata such as title, file path, project, and ownership is recorded in PostgreSQL. This separation ensures secure file handling alongside structured data management.
 
 #### **3\. Document Ingestion Pipeline**
 
@@ -156,17 +156,17 @@ For larger organizations, an enterprise licensing model could position CortexDoc
 **8\. Technical Architecture (High-Level)**
 -------------------------------------------
 
-### **1\. Frontend**
+### **1\. Desktop App**
 
-The frontend of CortexDocs AI is built using React with Vite as the build tool, styled with Tailwind CSS, and structured using React Router for client-side routing. The Supabase JavaScript client handles authentication and communication with the database. The frontend is responsible for user authentication, managing document uploads and listings, rendering the chat interface, handling modal interactions, and retrieving session tokens to securely communicate with the backend API.
+The desktop app of CortexDocs AI is built using Tauri and React with Vite as the build tool, styled with Tailwind CSS, and structured using React Router for client-side routing. The desktop app is responsible for project navigation, document uploads and listings, and rendering project-scoped copilot interfaces that communicate with the backend API.
 
 ### **2\. Backend**
 
-The backend is implemented using Node.js with the Express framework. It uses a layered structure with controllers (HTTP handling), services (business logic), repositories (Supabase data access), and middleware (auth checks). It uses the Supabase Admin client for secure database and storage operations that require elevated privileges. The backend orchestrates the Retrieval-Augmented Generation (RAG) pipeline, manages file ingestion processing, coordinates embedding generation, and integrates with the LLM for response generation. It exposes two primary endpoints: `/chat` for conversational queries and `/documents/ingest` for document processing. All document and chat operations enforce strict ownership validation to prevent cross-user access.
+The backend is implemented using Node.js with the Express framework. It uses a layered structure with controllers (HTTP handling), services (business logic), PostgreSQL repositories, and middleware (auth checks). The backend orchestrates the Retrieval-Augmented Generation (RAG) pipeline, manages file ingestion processing, coordinates embedding generation, and integrates with the LLM for response generation. It exposes project, document, chat, auth, and ingestion endpoints. All document and chat operations enforce strict ownership validation to prevent cross-user access.
 
 ### **3\. Database**
 
-The database layer is powered by Supabase PostgreSQL. User authentication is managed through Supabase Auth, while application data is stored across structured tables including `documents`, `document_chunks`, `chats`, and `chat_messages`. Vector similarity search is implemented through a PostgreSQL RPC function that enables semantic retrieval of document chunks based on embedding similarity.
+The database layer is powered by PostgreSQL with pgvector. Local authentication and application data are stored across structured tables including `users`, `projects`, `folders`, `documents`, `document_chunks`, `chats`, and `chat_messages`. Vector similarity search is implemented with pgvector cosine similarity queries that enable semantic retrieval of document chunks based on embedding similarity.
 
 ### **4\. AI Components**
 
@@ -184,16 +184,16 @@ The AI components consist of an embedding model (accessed via Hugging Face Infer
 
 ### **5\. Deployment**
 
-For deployment, both frontend and backend are containerized using Docker with multi-stage builds to optimize image size. Environment variables are injected at runtime to securely provide API keys and configuration values. The backend service runs on port 8080, while the frontend development server runs on port 5173. This setup supports local development and scalable production deployment.
+For local development, PostgreSQL and the backend run through Docker Compose, while the Tauri desktop app runs from `apps/desktop`. Environment variables are injected at runtime to securely provide API keys and configuration values. The backend service runs on port 8080 and the desktop dev server runs on port 1420 inside Tauri development mode.
 
 ### **Architecture Summary Table**
 
 
 | Layer      | Technology / Tools                                    | Key Responsibilities                                                              |
 | ---------- | ----------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Frontend   | React (Vite), Tailwind CSS, React Router, Supabase JS | UI rendering, authentication, document management, chat interface, token handling |
-| Backend    | Node.js (Express), Supabase Admin                     | RAG orchestration, ingestion processing, embedding & LLM integration              |
-| API Routes | `/chat`, `/documents/ingest`                          | Chat handling and document ingestion                                              |
-| Database   | Supabase PostgreSQL                                   | Store documents, chunks, chats, messages, vector search via RPC                   |
+| Desktop App | Tauri, React (Vite), Tailwind CSS, React Router      | UI rendering, project navigation, document management, copilot interface          |
+| Backend    | Node.js (Express), PostgreSQL repositories            | Auth, RAG orchestration, ingestion processing, embedding & LLM integration        |
+| API Routes | `/auth`, `/projects`, `/documents`, `/chat`           | Auth, project management, chat handling, and document ingestion                   |
+| Database   | PostgreSQL + pgvector                                 | Store users, projects, documents, chunks, chats, messages, vector search          |
 | AI Layer   | Embedding model + LLM                                 | Semantic retrieval and grounded answer generation                                 |
-| Deployment | Docker (multi-stage), environment variables           | Containerized frontend/backend, runtime configuration                             |
+| Deployment | Docker Compose + Tauri                                | Backend/database services and desktop app runtime configuration                   |
