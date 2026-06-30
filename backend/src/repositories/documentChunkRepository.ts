@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "../config/supabase.js";
+import { query } from "../config/database.js";
 
 type DocumentChunkInsertRow = {
   document_id: string;
@@ -7,16 +7,27 @@ type DocumentChunkInsertRow = {
   embedding: number[] | undefined;
 };
 
-export async function deleteChunksByDocumentId(documentId: string) {
-  const { error } = await supabaseAdmin
-    .from("document_chunks")
-    .delete()
-    .eq("document_id", documentId);
+type RepositoryError = { message: string } | null;
 
-  return { error };
+export async function deleteChunksByDocumentId(documentId: string) {
+  await query(`delete from document_chunks where document_id = $1`, [documentId]);
+
+  return { error: null as RepositoryError };
 }
 
 export async function insertDocumentChunks(rows: DocumentChunkInsertRow[]) {
-  const { error } = await supabaseAdmin.from("document_chunks").insert(rows);
-  return { error };
+  for (const row of rows) {
+    await query(
+      `insert into document_chunks (document_id, content, chunk_index, embedding)
+       values ($1, $2, $3, $4::vector)`,
+      [
+        row.document_id,
+        row.content,
+        row.chunk_index,
+        `[${(row.embedding ?? []).join(",")}]`,
+      ]
+    );
+  }
+
+  return { error: null as RepositoryError };
 }

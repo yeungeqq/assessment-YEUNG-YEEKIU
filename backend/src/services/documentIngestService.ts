@@ -4,6 +4,7 @@ import { embedBatch } from "../rag/embeddings.js";
 
 export const INGEST_REQUEST_SCHEMA = z.object({
   documentId: z.string().uuid(),
+  projectId: z.string().uuid().optional(),
 });
 
 const SUPPORTED_DOCUMENT_MIME_TYPES = new Set([
@@ -21,14 +22,6 @@ export function isSupportedDocumentMimeType(
   mimeType: string | null | undefined
 ): mimeType is string {
   return Boolean(mimeType && SUPPORTED_DOCUMENT_MIME_TYPES.has(mimeType));
-}
-
-export async function downloadFileBuffer(url: string) {
-  const fileResp = await fetch(url);
-  if (!fileResp.ok) {
-    throw new Error("Failed to download file from storage");
-  }
-  return Buffer.from(await fileResp.arrayBuffer());
 }
 
 export async function embedChunks(chunks: string[]) {

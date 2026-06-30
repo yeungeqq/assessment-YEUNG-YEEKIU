@@ -11,7 +11,7 @@ declare global {
 }
 
 /**
- * Verifies Supabase JWT from Authorization: Bearer <token>
+ * Verifies local backend token from Authorization: Bearer <token>.
  * Attaches req.userId and req.userEmail.
  */
 export async function requireUser(req: Request, res: Response, next: NextFunction) {
