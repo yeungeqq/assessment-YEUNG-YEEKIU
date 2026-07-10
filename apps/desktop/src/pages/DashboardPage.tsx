@@ -78,7 +78,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-6xl px-8 py-8">
+      <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Projects</h1>
@@ -193,6 +194,7 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -114,6 +114,22 @@ export default function ProjectSidebar({ onSignOut }: ProjectSidebarProps) {
     >
       <div className="flex h-16 items-center gap-3 border-b border-slate-200 px-4">
         {!collapsed && (
+          <button
+            type="button"
+            onClick={() => navigate("/dashboard")}
+            className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm hover:bg-slate-50"
+            aria-label="Go to home"
+            title="Go to home"
+          >
+            <img
+              src="/logo.png"
+              alt="CortexDocs AI Logo"
+              className="h-9 w-9 object-contain"
+              draggable={false}
+            />
+          </button>
+        )}
+        {!collapsed && (
           <div className="min-w-0">
             <div className="truncate text-sm font-bold text-slate-900">
               CortexDocs AI

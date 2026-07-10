@@ -28,11 +28,11 @@ export default function Signup({ onAuthed }: { onAuthed?: () => void }) {
     <div className="flex items-center justify-center py-10">
       <div className="w-full max-w-xl bg-white rounded-md shadow-sm border border-slate-200 p-10">
         <div className="flex justify-center mb-6">
-          <div className="h-10 w-10 rounded-full bg-white overflow-hidden flex items-center justify-center border border-slate-200">
+          <div className="h-11 w-11 rounded-lg bg-white overflow-hidden flex items-center justify-center border border-slate-200 shadow-sm">
             <img
               src="/logo.png"
               alt="CortexDocs AI Logo"
-              className="h-14 w-14 object-contain"
+              className="h-10 w-10 object-contain"
               draggable={false}
             />
           </div>
