@@ -11,9 +11,17 @@ type DocRow = {
   id: string;
   title: string | null;
   file_path: string;
+  mime_type?: string | null;
   created_at: string;
   project_id?: string | null;
   folder_id?: string | null;
+};
+
+type PreviewState = {
+  doc: DocRow;
+  url?: string;
+  text?: string;
+  kind: "document" | "image" | "text";
 };
 
 function inferMimeType(name: string) {
@@ -22,19 +30,75 @@ function inferMimeType(name: string) {
   if (lower.endsWith(".docx"))
     return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
   if (lower.endsWith(".doc")) return "application/msword";
+  if (lower.endsWith(".txt")) return "text/plain";
+  if (lower.endsWith(".png")) return "image/png";
+  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+  if (lower.endsWith(".gif")) return "image/gif";
+  if (lower.endsWith(".webp")) return "image/webp";
+  if (lower.endsWith(".bmp")) return "image/bmp";
+  if (lower.endsWith(".svg")) return "image/svg+xml";
   return "";
 }
 
 function isAllowedDoc(name: string) {
   const lower = name.toLowerCase();
-  return lower.endsWith(".pdf") || lower.endsWith(".doc") || lower.endsWith(".docx");
+  return (
+    lower.endsWith(".pdf") ||
+    lower.endsWith(".doc") ||
+    lower.endsWith(".docx") ||
+    lower.endsWith(".txt") ||
+    isImageFile(name)
+  );
+}
+
+function isIngestableDoc(name: string) {
+  const lower = name.toLowerCase();
+  return (
+    lower.endsWith(".pdf") ||
+    lower.endsWith(".doc") ||
+    lower.endsWith(".docx") ||
+    lower.endsWith(".txt")
+  );
+}
+
+function isPreviewableDoc(name: string) {
+  const lower = name.toLowerCase();
+  return (
+    lower.endsWith(".pdf") ||
+    lower.endsWith(".doc") ||
+    lower.endsWith(".docx") ||
+    lower.endsWith(".txt") ||
+    isImageFile(name)
+  );
+}
+
+function isImageFile(name: string) {
+  return /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name);
+}
+
+function previewKind(doc: DocRow): PreviewState["kind"] {
+  const name = doc.title ?? doc.file_path;
+  if ((doc.mime_type ?? "").startsWith("image/") || isImageFile(name)) {
+    return "image";
+  }
+  if (
+    (doc.mime_type ?? "") === "text/plain" ||
+    /\.(docx?|txt)$/i.test(name)
+  ) {
+    return "text";
+  }
+  return "document";
 }
 
 function isZip(name: string) {
   return name.toLowerCase().endsWith(".zip");
 }
 
-export default function Document() {
+type DocumentProps = {
+  onPreviewChange?: (previewing: boolean) => void;
+};
+
+export default function Document({ onPreviewChange }: DocumentProps = {}) {
   const { projectId } = useParams<{ projectId?: string }>();
   const [docs, setDocs] = useState<DocRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +107,8 @@ export default function Document() {
   const [open, setOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [preview, setPreview] = useState<PreviewState | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -75,12 +141,21 @@ export default function Document() {
     if (error) setErr(error.message);
 
     setDocs((data ?? []) as DocRow[]);
+    setPreview((current) =>
+      current && (data ?? []).some((doc: any) => doc.id === current.doc.id)
+        ? current
+        : null
+    );
     setLoading(false);
   }
 
   useEffect(() => {
     void loadDocs();
   }, [projectId]);
+
+  useEffect(() => {
+    onPreviewChange?.(Boolean(preview));
+  }, [onPreviewChange, preview]);
 
   const filtered = useMemo(() => {
     let result = docs;
@@ -119,6 +194,40 @@ export default function Document() {
     window.open(data.signedUrl, "_blank", "noopener,noreferrer");
   }
 
+  async function openPreview(doc: DocRow) {
+    setErr(null);
+    setPreviewLoading(true);
+
+    const kind = previewKind(doc);
+    if (kind === "text") {
+      const { data, error } = await API.fetchDocumentTextPreview(doc.id);
+      if (error || typeof data?.text !== "string") {
+        setErr(error?.message ?? "Failed to create document preview.");
+        setPreviewLoading(false);
+        return;
+      }
+
+      setPreview({ doc, kind, text: data.text });
+      setPreviewLoading(false);
+      return;
+    }
+
+    const { data, error } = await API.createDownloadUrl(doc.id);
+
+    if (error || !data?.signedUrl) {
+      setErr(error?.message ?? "Failed to create document preview link.");
+      setPreviewLoading(false);
+      return;
+    }
+
+    setPreview({
+      doc,
+      url: data.signedUrl,
+      kind,
+    });
+    setPreviewLoading(false);
+  }
+
   async function deleteDocConfirmed() {
     if (!toDelete) return;
     setDeleting(true);
@@ -145,7 +254,9 @@ export default function Document() {
     }
 
     if (!isAllowedDoc(file.name)) {
-      throw new Error(`Unsupported file: ${file.name}. Only PDF/DOC/DOCX allowed.`);
+      throw new Error(
+        `Unsupported file: ${file.name}. Upload PDF, DOC, DOCX, TXT, or image files.`
+      );
     }
 
     // Ensure mime type exists (important for backend extractor)
@@ -163,7 +274,9 @@ export default function Document() {
       throw new Error(upload.error?.message ?? "Failed to upload document.");
     }
 
-    await API.callIngest(upload.data.id, projectId);
+    if (isIngestableDoc(fixedFile.name)) {
+      await API.callIngest(upload.data.id, projectId);
+    }
   }
 
   async function onUpload(file: File) {
@@ -197,7 +310,9 @@ export default function Document() {
 
         const valid = entries.filter((f) => isAllowedDoc(f.name));
         if (valid.length === 0) {
-          throw new Error("ZIP file contains no valid documents (PDF/DOC/DOCX).");
+          throw new Error(
+            "ZIP file contains no valid documents (PDF/DOC/DOCX/TXT/images)."
+          );
         }
 
         // Upload extracted docs one-by-one
@@ -223,7 +338,9 @@ export default function Document() {
       // CASE 2: Single file upload
       // --------------------------
       if (!isAllowedDoc(file.name)) {
-        throw new Error("Only PDF, DOC, DOCX, or ZIP files are allowed.");
+        throw new Error(
+          "Only PDF, DOC, DOCX, TXT, image, or ZIP files are allowed."
+        );
       }
 
       await ingestOneFile(file);
@@ -239,35 +356,89 @@ export default function Document() {
 
   return (
     <div className="w-full">
-      {/* Top row: search + upload button */}
-      <div className="flex items-center gap-4">
-        <div className="flex-1">
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder={projectId ? "Search project documents..." : "Search files here..."}
-            className="w-full h-10 rounded-full bg-indigo-100/60 px-5 text-sm text-slate-700 placeholder:text-slate-400
-                       border border-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-        </div>
-
-        <button
-          onClick={() => setOpen(true)}
-          className="h-10 px-5 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-semibold transition"
-        >
-          Upload Document
-        </button>
-      </div>
-
       {/* Errors */}
       {err && (
-        <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="mx-8 mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {err}
         </div>
       )}
 
-      {/* Table */}
-      <div className="mt-6 rounded-md border border-slate-200 bg-white">
+      {preview && (
+        <div
+          className="relative flex min-h-[420px] flex-col border-y border-slate-200 bg-white"
+          style={{ height: "100vh" }}
+        >
+          <div className="flex items-center gap-3 border-b border-slate-200 px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-semibold text-slate-900">
+                {preview.doc.title ?? "Untitled"}
+              </div>
+              <div className="text-xs text-slate-500">Document preview</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPreview(null)}
+              className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Close
+            </button>
+          </div>
+
+          <div className="flex min-h-0 flex-1 items-center justify-center bg-slate-50">
+            {preview.kind === "text" ? (
+              <pre className="h-full w-full overflow-auto whitespace-pre-wrap bg-white p-5 text-sm leading-6 text-slate-800">
+                {preview.text || "No preview text available."}
+              </pre>
+            ) : preview.kind === "image" && preview.url ? (
+              <img
+                src={preview.url}
+                alt={preview.doc.title ?? "Document preview"}
+                className="max-h-full max-w-full object-contain"
+              />
+            ) : preview.url ? (
+              <iframe
+                title={preview.doc.title ?? "Document preview"}
+                src={preview.url}
+                className="h-full w-full border-0 bg-white"
+              />
+            ) : (
+              <div className="text-sm text-slate-500">Preview unavailable.</div>
+            )}
+          </div>
+
+        </div>
+      )}
+
+      {previewLoading && (
+        <div className="mx-8 mt-4 text-sm text-slate-500">Loading preview...</div>
+      )}
+
+      {!preview && (
+        <>
+          {/* Top row: search + upload button */}
+          <div className="flex items-center gap-4 px-8">
+            <div className="flex-1">
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder={
+                  projectId ? "Search project documents..." : "Search files here..."
+                }
+                className="w-full h-10 rounded-full bg-indigo-100/60 px-5 text-sm text-slate-700 placeholder:text-slate-400
+                           border border-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <button
+              onClick={() => setOpen(true)}
+              className="h-10 px-5 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-semibold transition"
+            >
+              Upload Document
+            </button>
+          </div>
+
+          {/* Table */}
+          <div className="mt-6 border-y border-slate-200 bg-white">
         {/* Header */}
           <div className="grid grid-cols-12 px-6 py-3 text-sm font-semibold text-slate-600 border-b border-slate-200">
             <div
@@ -308,7 +479,17 @@ export default function Document() {
                 className="grid grid-cols-12 px-6 py-4 border-b border-slate-100 items-center"
               >
                 <div className="col-span-6 text-slate-700 text-sm">
-                  {d.title ?? "Untitled"}
+                  {isPreviewableDoc(d.title ?? d.file_path) ? (
+                    <button
+                      type="button"
+                      onClick={() => void openPreview(d)}
+                      className="text-left font-medium text-blue-700 underline-offset-4 hover:underline"
+                    >
+                      {d.title ?? "Untitled"}
+                    </button>
+                  ) : (
+                    d.title ?? "Untitled"
+                  )}
                 </div>
 
                 <div className="col-span-3 text-center text-sm text-slate-600">
@@ -324,6 +505,8 @@ export default function Document() {
           )}
         </div>
       </div>
+        </>
+      )}
 
       {/* Upload Modal */}
       {open && (
@@ -350,7 +533,7 @@ export default function Document() {
               <label className="block">
                 <input
                   type="file"
-                  accept=".pdf,.doc,.docx,.zip"
+                  accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.gif,.webp,.bmp,.svg,.zip"
                   disabled={uploading}
                   onChange={(e) => {
                     const f = e.target.files?.[0];

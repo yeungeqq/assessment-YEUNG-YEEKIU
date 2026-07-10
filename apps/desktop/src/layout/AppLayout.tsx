@@ -26,7 +26,7 @@ export default function AppLayout({ children, authed, onSignOut }: Props) {
       <ProjectSidebar onSignOut={onSignOut} />
 
       <main className="min-w-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-6xl px-8 py-8">{children}</div>
+        <div className="w-full">{children}</div>
       </main>
 
       {projectId && <ProjectCopilotSidebar projectId={projectId} />}

@@ -9,6 +9,7 @@ import { chatRouter } from "./controllers/chat.js";
 import { documentsRouter } from "./controllers/documents.js";
 import { projectsRouter } from "./controllers/projects.js";
 import { authRouter } from "./controllers/auth.js";
+import { modelConfigRouter } from "./modules/model-config/model-config.routes.js";
 
 const app = express();
 
@@ -23,6 +24,7 @@ app.get("/health", (_req, res) => {
 });
 
 app.use(authRouter);
+app.use(modelConfigRouter);
 app.use(chatRouter);
 app.use(documentsRouter);
 app.use(projectsRouter);

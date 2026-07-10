@@ -105,7 +105,7 @@ chatRouter.post("/chat", requireUser, async (req, res) => {
     return res.status(400).json({ error: parsed.error.flatten() });
   }
 
-  const { chatId, projectId, message } = parsed.data;
+  const { chatId, projectId, message, llmModelId, embeddingModelId } = parsed.data;
   const userId = req.userId!;
 
   try {
@@ -131,7 +131,12 @@ chatRouter.post("/chat", requireUser, async (req, res) => {
       content: message,
     });
 
-    const answer = await generateChatAnswer(message, projectId);
+    const answer = await generateChatAnswer({
+      message,
+      projectId,
+      llmModelId,
+      embeddingModelId,
+    });
 
     await insertChatMessage({
       chatId,

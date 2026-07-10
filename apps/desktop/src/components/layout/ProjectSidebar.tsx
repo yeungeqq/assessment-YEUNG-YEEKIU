@@ -113,7 +113,6 @@ export default function ProjectSidebar({ onSignOut }: ProjectSidebarProps) {
       style={{ width: collapsed ? COLLAPSED_WIDTH : width }}
     >
       <div className="flex h-16 items-center gap-3 border-b border-slate-200 px-4">
-        <img src="/logo.png" alt="CortexDocs AI" className="h-9 w-9 object-contain" />
         {!collapsed && (
           <div className="min-w-0">
             <div className="truncate text-sm font-bold text-slate-900">

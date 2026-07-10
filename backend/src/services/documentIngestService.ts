@@ -11,6 +11,7 @@ const SUPPORTED_DOCUMENT_MIME_TYPES = new Set([
   "application/pdf",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/plain",
 ]);
 
 const CHUNK_SIZE = 1200;

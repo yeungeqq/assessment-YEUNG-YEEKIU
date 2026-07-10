@@ -63,6 +63,17 @@ export default function App() {
     });
   }, []);
 
+  useEffect(() => {
+    function handleAuthCleared() {
+      setAuthed(false);
+      navigate("/login", { replace: true });
+    }
+
+    window.addEventListener("cortexdocs-auth-cleared", handleAuthCleared);
+    return () =>
+      window.removeEventListener("cortexdocs-auth-cleared", handleAuthCleared);
+  }, [navigate]);
+
   function handleAuthed() {
     setAuthed(true);
     navigate("/dashboard", { replace: true });

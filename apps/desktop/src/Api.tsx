@@ -8,6 +8,32 @@ type LocalAuthResponse = {
   user: { id: string; email?: string | null };
 };
 
+export type ModelConfig = {
+  id: string;
+  provider: string;
+  label: string;
+  model: string;
+  capability: "llm" | "embedding";
+  enabled: boolean;
+  dimensions?: number;
+  baseUrl?: string;
+};
+
+export type ModelConfigResponse = {
+  defaults: {
+    llmModelId: string;
+    embeddingModelId: string;
+  };
+  llm: ModelConfig[];
+  embedding: ModelConfig[];
+};
+
+function clearLocalAuth() {
+  localStorage.removeItem(LOCAL_TOKEN_KEY);
+  localStorage.removeItem(LOCAL_USER_KEY);
+  window.dispatchEvent(new Event("cortexdocs-auth-cleared"));
+}
+
 function errorMessage(error: unknown, fallback = "Request failed") {
   if (typeof error === "string") return error;
   if (error && typeof error === "object") {
@@ -70,8 +96,7 @@ export async function getCurrentUser() {
     try {
       return { data: { user: JSON.parse(localUser) }, error: null };
     } catch {
-      localStorage.removeItem(LOCAL_TOKEN_KEY);
-      localStorage.removeItem(LOCAL_USER_KEY);
+      clearLocalAuth();
       return { data: { user: null }, error: null };
     }
   }
@@ -80,8 +105,7 @@ export async function getCurrentUser() {
 }
 
 export async function logout() {
-  localStorage.removeItem(LOCAL_TOKEN_KEY);
-  localStorage.removeItem(LOCAL_USER_KEY);
+  clearLocalAuth();
 }
 
 export async function getSessionToken() {
@@ -140,6 +164,14 @@ async function backendRequest<T>(
   });
 
   const json = await res.json().catch(() => ({}));
+  if (res.status === 401) {
+    clearLocalAuth();
+    return {
+      data: null,
+      error: { message: "Session expired. Please log in again." },
+    };
+  }
+
   if (!res.ok) {
     return {
       data: null,
@@ -180,7 +212,15 @@ export async function updateChatTitle(chatId: string, title: string) {
   });
 }
 
-export async function sendMessage(chatId: string, message: string, projectId?: string) {
+export async function sendMessage(
+  chatId: string,
+  message: string,
+  projectId?: string,
+  modelConfig?: {
+    llmModelId?: string;
+    embeddingModelId?: string;
+  }
+) {
   const token = await getSessionToken();
   if (!token) throw new Error("Not authenticated");
 
@@ -190,12 +230,22 @@ export async function sendMessage(chatId: string, message: string, projectId?: s
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ chatId, message, projectId }),
+    body: JSON.stringify({ chatId, message, projectId, ...modelConfig }),
   });
 
   const json = await res.json().catch(() => ({}));
+  if (res.status === 401) {
+    clearLocalAuth();
+    throw new Error("Session expired. Please log in again.");
+  }
+
   if (!res.ok) throw new Error(errorMessage((json as any)?.error));
   return json as { answer?: string };
+}
+
+// MODEL CONFIG
+export async function fetchModelConfig() {
+  return backendRequest<ModelConfigResponse>("/model-config");
 }
 
 // PROJECTS
@@ -277,6 +327,14 @@ export async function uploadDocumentFile(input: {
   });
 
   const json = await res.json().catch(() => ({}));
+  if (res.status === 401) {
+    clearLocalAuth();
+    return {
+      data: null,
+      error: { message: "Session expired. Please log in again." },
+    };
+  }
+
   if (!res.ok) {
     return { data: null, error: { message: errorMessage((json as any)?.error) } };
   }
@@ -288,6 +346,10 @@ export async function createDownloadUrl(documentId: string) {
   return backendRequest<{ signedUrl: string }>(
     `/documents/${documentId}/download-url`
   );
+}
+
+export async function fetchDocumentTextPreview(documentId: string) {
+  return backendRequest<{ text: string }>(`/documents/${documentId}/text-preview`);
 }
 
 export async function callIngest(documentId: string, projectId?: string) {
@@ -304,6 +366,11 @@ export async function callIngest(documentId: string, projectId?: string) {
   });
 
   const body = await resp.json().catch(() => ({}));
+  if (resp.status === 401) {
+    clearLocalAuth();
+    throw new Error("Session expired. Please log in again.");
+  }
+
   if (!resp.ok) throw new Error((body as any)?.error ?? "Ingest failed");
   return body as { ok?: boolean; chunks?: number };
 }

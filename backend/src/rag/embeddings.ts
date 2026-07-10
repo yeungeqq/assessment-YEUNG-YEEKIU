@@ -1,19 +1,15 @@
-import { HuggingFaceInferenceEmbeddings } from "@langchain/community/embeddings/hf";
+import { createEmbeddingProvider } from "./embeddings/embedding.factory.js";
 
-const token = process.env.EMBED_MODEL_API_TOKEN;
-if (!token) throw new Error("Missing EMBED_MODEL_API_TOKEN");
-
-const model = process.env.EMBED_MODEL || "BAAI/bge-base-en-v1.5";
-
-const embeddings = new HuggingFaceInferenceEmbeddings({
-  apiKey: token,
-  model,
-});
-
-export async function embedText(text: string): Promise<number[]> {
-  return embeddings.embedQuery(text);
+export async function embedText(
+  text: string,
+  modelId?: string
+): Promise<number[]> {
+  return createEmbeddingProvider(modelId).embedText(text);
 }
 
-export async function embedBatch(texts: string[]): Promise<number[][]> {
-  return embeddings.embedDocuments(texts);
+export async function embedBatch(
+  texts: string[],
+  modelId?: string
+): Promise<number[][]> {
+  return createEmbeddingProvider(modelId).embedBatch(texts);
 }

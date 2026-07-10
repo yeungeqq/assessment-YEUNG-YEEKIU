@@ -5,14 +5,14 @@ type RepositoryError = { message: string } | null;
 export async function listDocumentsByUser(userId: string, projectId?: string) {
   const { rows } = projectId
     ? await query(
-        `select id, title, file_path, created_at, project_id, folder_id
+        `select id, title, file_path, mime_type, created_at, project_id, folder_id
          from documents
          where user_id = $1 and project_id = $2
          order by created_at desc`,
         [userId, projectId]
       )
     : await query(
-        `select id, title, file_path, created_at, project_id, folder_id
+        `select id, title, file_path, mime_type, created_at, project_id, folder_id
          from documents
          where user_id = $1
          order by created_at desc`,

@@ -15,6 +15,7 @@ export default function ProjectPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const [project, setProject] = useState<ProjectRow | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [previewingDocument, setPreviewingDocument] = useState(false);
 
   async function loadProject() {
     if (!projectId) return;
@@ -38,26 +39,28 @@ export default function ProjectPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <div className="text-sm font-semibold text-slate-500">Project</div>
-        <h1 className="mt-1 text-2xl font-bold text-slate-900">
-          {project?.name ?? "Project"}
-        </h1>
-        {project?.description && (
-          <p className="mt-1 max-w-3xl text-sm text-slate-600">
-            {project.description}
-          </p>
-        )}
-      </div>
+    <div className="min-h-full">
+      {!previewingDocument && (
+        <div className="px-8 py-8 pb-6">
+          <div className="text-sm font-semibold text-slate-500">Project</div>
+          <h1 className="mt-1 text-2xl font-bold text-slate-900">
+            {project?.name ?? "Project"}
+          </h1>
+          {project?.description && (
+            <p className="mt-1 max-w-3xl text-sm text-slate-600">
+              {project.description}
+            </p>
+          )}
 
-      {error && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
+          {error && (
+            <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
         </div>
       )}
 
-      <Document />
+      <Document onPreviewChange={setPreviewingDocument} />
     </div>
   );
 }

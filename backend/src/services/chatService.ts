@@ -14,6 +14,8 @@ export const CHAT_REQUEST_SCHEMA = z.object({
   chatId: z.string().uuid(),
   projectId: z.string().uuid().optional(),
   message: z.string().min(1).max(4000),
+  llmModelId: z.string().optional(),
+  embeddingModelId: z.string().optional(),
 });
 
 const MAX_MATCHES = 6;
@@ -71,10 +73,21 @@ export async function insertChatMessage(params: InsertChatMessageParams) {
   }
 }
 
-export async function generateChatAnswer(message: string, projectId?: string) {
-  const queryEmbedding = await embedText(message);
-  const { matches, error } = projectId
-    ? await matchProjectChunksByEmbedding(queryEmbedding, MAX_MATCHES, projectId)
+type GenerateChatAnswerInput = {
+  message: string;
+  projectId?: string;
+  llmModelId?: string;
+  embeddingModelId?: string;
+};
+
+export async function generateChatAnswer(input: GenerateChatAnswerInput) {
+  const queryEmbedding = await embedText(input.message, input.embeddingModelId);
+  const { matches, error } = input.projectId
+    ? await matchProjectChunksByEmbedding(
+        queryEmbedding,
+        MAX_MATCHES,
+        input.projectId
+      )
     : await matchChunksByEmbedding(queryEmbedding, MAX_MATCHES);
 
   if (error) {
@@ -93,5 +106,5 @@ export async function generateChatAnswer(message: string, projectId?: string) {
         `Source [S${i + 1}]\n${(row.content ?? "").slice(0, SOURCE_PREVIEW_LENGTH)}`
     );
 
-  return answerWithSources(message, sources);
+  return answerWithSources(input.message, sources, input.llmModelId);
 }

@@ -5,6 +5,10 @@ export async function extractTextFromFile(
   buffer: Buffer,
   mimeType: string
 ): Promise<string> {
+  if (mimeType === "text/plain") {
+    return buffer.toString("utf8").trim();
+  }
+
   if (mimeType === "application/pdf") {
     const loadingTask = (pdfjsLib as any).getDocument({
       data: new Uint8Array(buffer),

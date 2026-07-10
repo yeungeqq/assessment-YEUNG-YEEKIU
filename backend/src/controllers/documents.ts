@@ -151,6 +151,28 @@ documentsRouter.get("/documents/:documentId/download-url", requireUser, async (r
   }
 });
 
+documentsRouter.get("/documents/:documentId/text-preview", requireUser, async (req, res) => {
+  try {
+    const { document } = await findDocumentByIdAndUser(
+      req.params.documentId,
+      req.userId!
+    );
+    if (!document) return res.status(404).json({ error: "Document not found" });
+
+    if (!document.mime_type || !isSupportedDocumentMimeType(document.mime_type)) {
+      return res.status(400).json({ error: "Text preview is not available." });
+    }
+
+    const buffer = await downloadObjectBuffer(document.file_path);
+    const text = await extractTextFromFile(buffer, document.mime_type);
+    return res.json({ data: { text } });
+  } catch (e: any) {
+    return res
+      .status(500)
+      .json({ error: e?.message ?? "Failed to create text preview" });
+  }
+});
+
 documentsRouter.post("/documents/ingest", requireUser, async (req, res) => {
   const parsed = INGEST_REQUEST_SCHEMA.safeParse(req.body);
   if (!parsed.success) {
