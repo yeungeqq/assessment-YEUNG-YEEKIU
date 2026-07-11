@@ -25,4 +25,17 @@ export async function query<T extends QueryResultRow = any>(
 export async function ensureDatabaseSchema() {
   await query(`alter table users add column if not exists password_hash text`);
   await query(`create unique index if not exists users_email_key on users(email)`);
+  await query(`
+    create table if not exists document_annotations (
+      document_id uuid primary key references documents(id) on delete cascade,
+      user_id uuid not null references users(id) on delete cascade,
+      annotations jsonb not null default '[]'::jsonb,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    )
+  `);
+  await query(`
+    create index if not exists document_annotations_user_id_idx
+    on document_annotations(user_id)
+  `);
 }

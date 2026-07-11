@@ -4,9 +4,10 @@ import { z } from "zod";
 import { requireUser } from "../middleware/requireUser.js";
 import { extractTextFromFile } from "../rag/extract.js";
 import {
-  deleteChunksByDocumentId,
-  insertDocumentChunks,
-} from "../repositories/documentChunkRepository.js";
+  getDocumentAnnotations,
+  upsertDocumentAnnotations,
+} from "../repositories/documentAnnotationRepository.js";
+import { deleteChunksByDocumentId } from "../repositories/documentChunkRepository.js";
 import {
   createDocumentRecord,
   deleteDocumentByIdAndUser,
@@ -17,10 +18,12 @@ import {
 } from "../repositories/documentRepository.js";
 import {
   INGEST_REQUEST_SCHEMA,
-  buildChunks,
-  embedChunks,
   isSupportedDocumentMimeType,
 } from "../services/documentIngestService.js";
+import {
+  refreshDocumentContext,
+  replaceDocumentFileAndRefresh,
+} from "../services/documentRefreshService.js";
 import {
   createObjectDownloadUrl,
   deleteObject,
@@ -36,6 +39,32 @@ const UPLOAD_DOCUMENT_QUERY_SCHEMA = z.object({
   title: z.string().min(1).max(500),
   mimeType: z.string().nullable().optional(),
 });
+
+const DOCUMENT_ANNOTATIONS_SCHEMA = z.object({
+  annotations: z.array(z.unknown()),
+});
+
+function annotationsToSearchableText(annotations: unknown[]) {
+  const textAnnotations = annotations
+    .filter((annotation): annotation is { type: string; text?: unknown } => {
+      return (
+        Boolean(annotation) &&
+        typeof annotation === "object" &&
+        (annotation as { type?: unknown }).type === "text"
+      );
+    })
+    .map((annotation) =>
+      typeof annotation.text === "string" ? annotation.text.trim() : ""
+    )
+    .filter(Boolean);
+
+  if (textAnnotations.length === 0) return "";
+
+  return [
+    "User-added image annotations:",
+    ...textAnnotations.map((text, index) => `Text box ${index + 1}: ${text}`),
+  ].join("\n");
+}
 
 documentsRouter.get("/documents", requireUser, async (req, res) => {
   const projectId =
@@ -122,6 +151,7 @@ documentsRouter.delete("/documents/:documentId", requireUser, async (req, res) =
     );
     if (!document) return res.status(404).json({ error: "Document not found" });
 
+    await deleteChunksByDocumentId(req.params.documentId);
     await deleteObject(document.file_path);
     const deleted = await deleteDocumentByIdAndUser(
       req.params.documentId,
@@ -151,6 +181,83 @@ documentsRouter.get("/documents/:documentId/download-url", requireUser, async (r
   }
 });
 
+documentsRouter.get("/documents/:documentId/file", requireUser, async (req, res) => {
+  try {
+    const { document } = await findDocumentByIdAndUser(
+      req.params.documentId,
+      req.userId!
+    );
+    if (!document) return res.status(404).json({ error: "Document not found" });
+
+    const buffer = await downloadObjectBuffer(document.file_path);
+    if (document.mime_type) {
+      res.setHeader("Content-Type", document.mime_type);
+    }
+    res.setHeader("Content-Disposition", `inline; filename="${document.title ?? "document"}"`);
+    return res.send(buffer);
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message ?? "Failed to load document" });
+  }
+});
+
+documentsRouter.get("/documents/:documentId/annotations", requireUser, async (req, res) => {
+  try {
+    const { document } = await findDocumentByIdAndUser(
+      req.params.documentId,
+      req.userId!
+    );
+    if (!document) return res.status(404).json({ error: "Document not found" });
+
+    const annotations = await getDocumentAnnotations(
+      req.params.documentId,
+      req.userId!
+    );
+    return res.json({ data: { annotations } });
+  } catch (e: any) {
+    return res
+      .status(500)
+      .json({ error: e?.message ?? "Failed to load annotations" });
+  }
+});
+
+documentsRouter.put("/documents/:documentId/annotations", requireUser, async (req, res) => {
+  const parsed = DOCUMENT_ANNOTATIONS_SCHEMA.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+
+  try {
+    const { document } = await findDocumentByIdAndUser(
+      req.params.documentId,
+      req.userId!
+    );
+    if (!document) return res.status(404).json({ error: "Document not found" });
+
+    const annotations = await upsertDocumentAnnotations({
+      documentId: req.params.documentId,
+      userId: req.userId!,
+      annotations: parsed.data.annotations,
+    });
+
+    let chunks = 0;
+    if (document.mime_type && isSupportedDocumentMimeType(document.mime_type)) {
+      const result = await refreshDocumentContext({
+        documentId: document.id,
+        filePath: document.file_path,
+        mimeType: document.mime_type,
+        additionalText: annotationsToSearchableText(parsed.data.annotations),
+      });
+      chunks = result.chunks;
+    }
+
+    return res.json({ data: { annotations, chunks } });
+  } catch (e: any) {
+    return res
+      .status(500)
+      .json({ error: e?.message ?? "Failed to save annotations" });
+  }
+});
+
 documentsRouter.get("/documents/:documentId/text-preview", requireUser, async (req, res) => {
   try {
     const { document } = await findDocumentByIdAndUser(
@@ -172,6 +279,37 @@ documentsRouter.get("/documents/:documentId/text-preview", requireUser, async (r
       .json({ error: e?.message ?? "Failed to create text preview" });
   }
 });
+
+documentsRouter.put(
+  "/documents/:documentId/file",
+  requireUser,
+  express.raw({ type: "*/*", limit: "50mb" }),
+  async (req, res) => {
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+      return res.status(400).json({ error: "Missing document file body" });
+    }
+
+    try {
+      const { document } = await findDocumentByIdAndUser(
+        req.params.documentId,
+        req.userId!
+      );
+      if (!document) return res.status(404).json({ error: "Document not found" });
+
+      const result = await replaceDocumentFileAndRefresh({
+        documentId: document.id,
+        filePath: document.file_path,
+        mimeType: document.mime_type,
+        body: req.body,
+      });
+
+      return res.json({ ok: true, chunks: result.chunks });
+    } catch (e: any) {
+      console.error("DOCUMENT SAVE ERROR:", e);
+      return res.status(500).json({ error: e?.message ?? "Failed to save document" });
+    }
+  }
+);
 
 documentsRouter.post("/documents/ingest", requireUser, async (req, res) => {
   const parsed = INGEST_REQUEST_SCHEMA.safeParse(req.body);
@@ -204,44 +342,23 @@ documentsRouter.post("/documents/ingest", requireUser, async (req, res) => {
       return res.status(400).json({ error: "Unsupported document type." });
     }
 
-    const buffer = await downloadObjectBuffer(doc.file_path);
-
-    let text = "";
     try {
-      text = await extractTextFromFile(buffer, doc.mime_type);
+      const result = await refreshDocumentContext({
+        documentId,
+        filePath: doc.file_path,
+        mimeType: doc.mime_type,
+      });
+
+      return res.json({ ok: true, chunks: result.chunks });
     } catch (err) {
       console.error("Extraction failed:", err);
       return res.status(400).json({
-        error: "Failed to extract document. File may be corrupted.",
+        error:
+          err instanceof Error
+            ? err.message
+            : "Failed to extract document. File may be corrupted.",
       });
     }
-
-    if (!text.trim()) {
-      return res
-        .status(400)
-        .json({ error: "No extractable text found (maybe scanned PDF?)" });
-    }
-
-    const chunks = buildChunks(text);
-    const vectors = await embedChunks(chunks);
-
-    await deleteChunksByDocumentId(documentId);
-
-    const rows = chunks.map((content: string, idx: number) => ({
-      document_id: documentId,
-      content,
-      chunk_index: idx,
-      embedding: vectors[idx],
-    }));
-
-    const { error: insErr } = await insertDocumentChunks(rows);
-    if (insErr) {
-      return res
-        .status(500)
-        .json({ error: `Insert chunks failed: ${insErr.message}` });
-    }
-
-    return res.json({ ok: true, chunks: rows.length });
   } catch (e: any) {
     console.error("INGEST ERROR:", e);
     return res.status(500).json({ error: e?.message ?? "Ingest failed" });

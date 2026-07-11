@@ -12,6 +12,12 @@ const SUPPORTED_DOCUMENT_MIME_TYPES = new Set([
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "text/plain",
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+  "image/bmp",
+  "image/svg+xml",
 ]);
 
 const CHUNK_SIZE = 1200;

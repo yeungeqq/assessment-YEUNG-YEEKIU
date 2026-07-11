@@ -352,6 +352,89 @@ export async function fetchDocumentTextPreview(documentId: string) {
   return backendRequest<{ text: string }>(`/documents/${documentId}/text-preview`);
 }
 
+export async function fetchDocumentFileBlob(documentId: string) {
+  const token = await getSessionToken();
+  if (!token) return { data: null, error: { message: "Not authenticated" } };
+
+  const res = await fetch(`${BACKEND_URL}/documents/${documentId}/file`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (res.status === 401) {
+    clearLocalAuth();
+    return {
+      data: null,
+      error: { message: "Session expired. Please log in again." },
+    };
+  }
+
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    return {
+      data: null,
+      error: { message: errorMessage((json as any)?.error, "Failed to load document.") },
+    };
+  }
+
+  return { data: await res.blob(), error: null };
+}
+
+export async function fetchDocumentAnnotations<T = unknown>(documentId: string) {
+  return backendRequest<{ annotations: T[] }>(
+    `/documents/${documentId}/annotations`
+  );
+}
+
+export async function saveDocumentAnnotations<T = unknown>(
+  documentId: string,
+  annotations: T[]
+) {
+  return backendRequest<{ annotations: T[] }>(
+    `/documents/${documentId}/annotations`,
+    {
+      method: "PUT",
+      body: JSON.stringify({ annotations }),
+    }
+  );
+}
+
+export async function replaceDocumentFile(documentId: string, file: File) {
+  const token = await getSessionToken();
+  if (!token) return { data: null, error: { message: "Not authenticated" } };
+
+  const res = await fetch(`${BACKEND_URL}/documents/${documentId}/file`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": file.type || "application/octet-stream",
+    },
+    body: await file.arrayBuffer(),
+  });
+
+  const json = await res.json().catch(() => ({}));
+  if (res.status === 401) {
+    clearLocalAuth();
+    return {
+      data: null,
+      error: { message: "Session expired. Please log in again." },
+    };
+  }
+
+  if (!res.ok) {
+    return {
+      data: null,
+      error: { message: errorMessage((json as any)?.error) },
+    };
+  }
+
+  return {
+    data: (json as any).data ?? ({ chunks: (json as any).chunks ?? 0 } as { chunks: number }),
+    error: null,
+  };
+}
+
 export async function callIngest(documentId: string, projectId?: string) {
   const token = await getSessionToken();
   if (!token) throw new Error("Not authenticated");

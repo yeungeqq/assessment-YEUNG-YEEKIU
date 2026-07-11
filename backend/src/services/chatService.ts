@@ -103,7 +103,7 @@ export async function generateChatAnswer(input: GenerateChatAnswerInput) {
     .slice(0, MAX_MATCHES)
     .map(
       (row: any, i: number) =>
-        `Source [S${i + 1}]\n${(row.content ?? "").slice(0, SOURCE_PREVIEW_LENGTH)}`
+        `Retrieved context excerpt ${i + 1}\n${(row.content ?? "").slice(0, SOURCE_PREVIEW_LENGTH)}`
     );
 
   return answerWithSources(input.message, sources, input.llmModelId);

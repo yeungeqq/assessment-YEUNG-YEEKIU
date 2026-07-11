@@ -29,6 +29,13 @@ export function buildSourceBoundMessages(question: string, sources: string[]) {
         Explain the key points, relevant context, implications, and any important
         relationships between facts in the documents.
 
+        The provided sources are retrieved context excerpts, not separate
+        uploaded documents. Do not infer or state how many documents were
+        uploaded based on the number of excerpts. Do not refer to excerpts as
+        Source S1, S2, S3, or claim that you analyzed multiple documents unless
+        the user explicitly asks about document counts and that count is present
+        in the provided context.
+
         Use clear structure when it improves readability. You may use short
         paragraphs, bullet points, and concise headings.
 

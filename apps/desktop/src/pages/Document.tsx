@@ -4,6 +4,7 @@ import { useParams } from "react-router-dom";
 import JSZip from "jszip";
 import DownloadButton from "../components/DownloadButton";
 import DeleteButton from "../components/DeleteButton";
+import DocumentEditor from "../components/editor/DocumentEditor";
 import * as API from "../Api";
 import SortIcon from "../components/SortIcon";
 
@@ -57,7 +58,8 @@ function isIngestableDoc(name: string) {
     lower.endsWith(".pdf") ||
     lower.endsWith(".doc") ||
     lower.endsWith(".docx") ||
-    lower.endsWith(".txt")
+    lower.endsWith(".txt") ||
+    isImageFile(name)
   );
 }
 
@@ -109,6 +111,7 @@ export default function Document({ onPreviewChange }: DocumentProps = {}) {
   const [err, setErr] = useState<string | null>(null);
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -199,6 +202,13 @@ export default function Document({ onPreviewChange }: DocumentProps = {}) {
     setPreviewLoading(true);
 
     const kind = previewKind(doc);
+    if (kind === "image") {
+      setPreview({ doc, kind });
+      setEditing(true);
+      setPreviewLoading(false);
+      return;
+    }
+
     if (kind === "text") {
       const { data, error } = await API.fetchDocumentTextPreview(doc.id);
       if (error || typeof data?.text !== "string") {
@@ -208,6 +218,7 @@ export default function Document({ onPreviewChange }: DocumentProps = {}) {
       }
 
       setPreview({ doc, kind, text: data.text });
+      setEditing(true);
       setPreviewLoading(false);
       return;
     }
@@ -225,7 +236,17 @@ export default function Document({ onPreviewChange }: DocumentProps = {}) {
       url: data.signedUrl,
       kind,
     });
+    setEditing(false);
     setPreviewLoading(false);
+  }
+
+  async function handleEditorSaved() {
+    setEditing(false);
+    const currentDoc = preview?.doc;
+    await loadDocs();
+    if (currentDoc) {
+      await openPreview(currentDoc);
+    }
   }
 
   async function deleteDocConfirmed() {
@@ -368,43 +389,81 @@ export default function Document({ onPreviewChange }: DocumentProps = {}) {
           className="relative flex min-h-[420px] flex-col border-y border-slate-200 bg-white"
           style={{ height: "100vh" }}
         >
-          <div className="flex items-center gap-3 border-b border-slate-200 px-4 py-3">
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-semibold text-slate-900">
-                {preview.doc.title ?? "Untitled"}
+          {editing ? (
+            <DocumentEditor
+              document={preview.doc}
+              initialText={preview.text}
+              onCancel={() => {
+                if (preview.kind === "image" || preview.kind === "text") {
+                  setEditing(false);
+                  setPreview(null);
+                  return;
+                }
+                setEditing(false);
+              }}
+              onSaved={(_, options) => {
+                if (preview.kind === "text") {
+                  if (options?.closeAfterSave) {
+                    setEditing(false);
+                    setPreview(null);
+                  }
+                  void loadDocs();
+                  return;
+                }
+                void handleEditorSaved();
+              }}
+            />
+          ) : (
+            <>
+              <div className="flex items-center gap-3 border-b border-slate-200 px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold text-slate-900">
+                    {preview.doc.title ?? "Untitled"}
+                  </div>
+                  <div className="text-xs text-slate-500">Document preview</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditing(false);
+                    setPreview(null);
+                  }}
+                  className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Close
+                </button>
               </div>
-              <div className="text-xs text-slate-500">Document preview</div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setPreview(null)}
-              className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              Close
-            </button>
-          </div>
 
-          <div className="flex min-h-0 flex-1 items-center justify-center bg-slate-50">
-            {preview.kind === "text" ? (
-              <pre className="h-full w-full overflow-auto whitespace-pre-wrap bg-white p-5 text-sm leading-6 text-slate-800">
-                {preview.text || "No preview text available."}
-              </pre>
-            ) : preview.kind === "image" && preview.url ? (
-              <img
-                src={preview.url}
-                alt={preview.doc.title ?? "Document preview"}
-                className="max-h-full max-w-full object-contain"
-              />
-            ) : preview.url ? (
-              <iframe
-                title={preview.doc.title ?? "Document preview"}
-                src={preview.url}
-                className="h-full w-full border-0 bg-white"
-              />
-            ) : (
-              <div className="text-sm text-slate-500">Preview unavailable.</div>
-            )}
-          </div>
+              <div className="flex min-h-0 flex-1 items-center justify-center bg-slate-50">
+                {preview.kind === "text" ? (
+                  <pre className="h-full w-full overflow-auto whitespace-pre-wrap bg-white p-5 text-sm leading-6 text-slate-800">
+                    {preview.text || "No preview text available."}
+                  </pre>
+                ) : preview.kind === "image" && preview.url ? (
+                  <img
+                    src={preview.url}
+                    alt={preview.doc.title ?? "Document preview"}
+                    className="max-h-full max-w-full object-contain"
+                  />
+                ) : preview.url ? (
+                  <iframe
+                    title={preview.doc.title ?? "Document preview"}
+                    src={preview.url}
+                    className="h-full w-full border-0 bg-white"
+                  />
+                ) : (
+                  <div className="text-sm text-slate-500">Preview unavailable.</div>
+                )}
+              </div>
+            </>
+          )}
 
         </div>
       )}

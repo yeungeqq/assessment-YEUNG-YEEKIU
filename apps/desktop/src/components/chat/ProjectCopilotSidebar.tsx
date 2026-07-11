@@ -67,6 +67,38 @@ function renderInlineMarkdown(text: string) {
   });
 }
 
+function renderMarkdownLine(line: string, key: string) {
+  const heading = /^(#{1,6})\s+(.+)$/.exec(line);
+  if (heading) {
+    const level = heading[1].length;
+    const className =
+      level <= 2
+        ? "text-base font-bold text-slate-900"
+        : "text-sm font-bold text-slate-900";
+
+    return (
+      <div key={key} className={className}>
+        {renderInlineMarkdown(heading[2])}
+      </div>
+    );
+  }
+
+  const listItem = /^([-*]|\d+\.)\s+(.+)$/.exec(line);
+  if (listItem) {
+    return (
+      <li key={key} className="ml-4 pl-1">
+        {renderInlineMarkdown(listItem[2])}
+      </li>
+    );
+  }
+
+  return (
+    <p key={key} className="whitespace-pre-wrap">
+      {renderInlineMarkdown(line)}
+    </p>
+  );
+}
+
 function FormattedAssistantMessage({ content }: { content: string }) {
   const blocks = content
     .split(/\n{2,}/)
@@ -74,7 +106,7 @@ function FormattedAssistantMessage({ content }: { content: string }) {
     .filter(Boolean);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {blocks.map((block, blockIndex) => {
         const lines = block
           .split("\n")
@@ -84,7 +116,7 @@ function FormattedAssistantMessage({ content }: { content: string }) {
 
         if (isList) {
           return (
-            <ul key={blockIndex} className="list-disc space-y-1 pl-4">
+            <ul key={blockIndex} className="list-disc space-y-2 pl-4">
               {lines.map((line, lineIndex) => (
                 <li key={lineIndex}>
                   {renderInlineMarkdown(line.replace(/^([-*]|\d+\.)\s+/, ""))}
@@ -95,9 +127,11 @@ function FormattedAssistantMessage({ content }: { content: string }) {
         }
 
         return (
-          <p key={blockIndex} className="whitespace-pre-wrap">
-            {renderInlineMarkdown(block)}
-          </p>
+          <div key={blockIndex} className="space-y-2">
+            {lines.map((line, lineIndex) =>
+              renderMarkdownLine(line, `${blockIndex}-${lineIndex}`)
+            )}
+          </div>
         );
       })}
     </div>

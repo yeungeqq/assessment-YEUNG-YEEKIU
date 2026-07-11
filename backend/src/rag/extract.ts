@@ -1,10 +1,15 @@
 import mammoth from "mammoth";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+import { describeImageBuffer } from "./vision.js";
 
 export async function extractTextFromFile(
   buffer: Buffer,
   mimeType: string
 ): Promise<string> {
+  if (mimeType.startsWith("image/")) {
+    return describeImageBuffer(buffer, mimeType);
+  }
+
   if (mimeType === "text/plain") {
     return buffer.toString("utf8").trim();
   }
