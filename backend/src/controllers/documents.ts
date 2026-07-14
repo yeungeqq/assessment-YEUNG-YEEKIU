@@ -25,6 +25,7 @@ import {
   refreshDocumentContext,
   replaceDocumentFileAndRefresh,
 } from "../services/documentRefreshService.js";
+import { exportDocumentWithChanges } from "../services/documentExportService.js";
 import {
   createObjectDownloadUrl,
   deleteObject,
@@ -232,6 +233,39 @@ documentsRouter.get("/documents/:documentId/download-url", requireUser, async (r
     return res
       .status(500)
       .json({ error: e?.message ?? "Failed to create download URL" });
+  }
+});
+
+documentsRouter.get("/documents/:documentId/export", requireUser, async (req, res) => {
+  try {
+    const { document } = await findDocumentByIdAndUser(
+      req.params.documentId,
+      req.userId!
+    );
+    if (!document) return res.status(404).json({ error: "Document not found" });
+
+    const annotations = await getDocumentAnnotations(
+      req.params.documentId,
+      req.userId!
+    );
+    const exported = await exportDocumentWithChanges({
+      filePath: document.file_path,
+      title: document.title,
+      mimeType: document.mime_type,
+      annotations,
+    });
+
+    res.setHeader("Content-Type", exported.contentType);
+    res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${exported.filename.replace(/"/g, "")}"`
+    );
+    return res.send(exported.body);
+  } catch (e: any) {
+    return res
+      .status(500)
+      .json({ error: e?.message ?? "Failed to export document" });
   }
 });
 

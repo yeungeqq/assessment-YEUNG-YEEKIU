@@ -1,4 +1,5 @@
 import { matchPath, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
 import ProjectCopilotSidebar from "../components/chat/ProjectCopilotSidebar";
 import ProjectSidebar from "../components/layout/ProjectSidebar";
 
@@ -12,6 +13,11 @@ export default function AppLayout({ children, authed, onSignOut }: Props) {
   const location = useLocation();
   const projectMatch = matchPath("/projects/:projectId", location.pathname);
   const projectId = projectMatch?.params.projectId;
+  const [copilotExpanded, setCopilotExpanded] = useState(false);
+
+  useEffect(() => {
+    setCopilotExpanded(false);
+  }, [projectId]);
 
   if (!authed) {
     return (
@@ -25,11 +31,19 @@ export default function AppLayout({ children, authed, onSignOut }: Props) {
     <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-900">
       <ProjectSidebar onSignOut={onSignOut} />
 
-      <main className="min-w-0 flex-1 overflow-y-auto">
-        <div className="w-full">{children}</div>
-      </main>
+      {!copilotExpanded && (
+        <main className="min-w-0 flex-1 overflow-y-auto">
+          <div className="w-full">{children}</div>
+        </main>
+      )}
 
-      {projectId && <ProjectCopilotSidebar projectId={projectId} />}
+      {projectId && (
+        <ProjectCopilotSidebar
+          projectId={projectId}
+          expanded={copilotExpanded}
+          onExpandedChange={setCopilotExpanded}
+        />
+      )}
     </div>
   );
 }

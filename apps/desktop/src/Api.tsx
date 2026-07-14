@@ -348,6 +348,52 @@ export async function createDownloadUrl(documentId: string) {
   );
 }
 
+export async function downloadExportedDocument(documentId: string) {
+  const token = await getSessionToken();
+  if (!token) return { data: null, error: { message: "Not authenticated" } };
+
+  const res = await fetch(`${BACKEND_URL}/documents/${documentId}/export`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (res.status === 401) {
+    clearLocalAuth();
+    return {
+      data: null,
+      error: { message: "Session expired. Please log in again." },
+    };
+  }
+
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    return {
+      data: null,
+      error: { message: errorMessage((json as any)?.error, "Failed to download document.") },
+    };
+  }
+
+  const disposition = res.headers.get("content-disposition") ?? "";
+  const contentType = res.headers.get("content-type") ?? "";
+  const extension = contentType.includes("application/pdf")
+    ? "pdf"
+    : contentType.includes("text/plain")
+      ? "txt"
+      : contentType.includes("image/jpeg")
+        ? "jpg"
+        : "document";
+  const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? `document.${extension}`;
+
+  return {
+    data: {
+      blob: await res.blob(),
+      filename,
+    },
+    error: null,
+  };
+}
+
 export async function fetchDocumentTextPreview(documentId: string) {
   return backendRequest<{ text: string }>(`/documents/${documentId}/text-preview`);
 }

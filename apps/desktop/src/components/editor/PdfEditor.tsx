@@ -18,6 +18,8 @@ type PdfStrokeAnnotation = {
   id: string;
   type: "stroke";
   page: number;
+  pageWidth?: number;
+  pageHeight?: number;
   points: Point[];
   color: string;
   size: number;
@@ -26,6 +28,8 @@ type PdfHighlightAnnotation = {
   id: string;
   type: "highlight";
   page: number;
+  pageWidth?: number;
+  pageHeight?: number;
   x: number;
   y: number;
   width: number;
@@ -470,6 +474,8 @@ export default function PdfEditor({ document, onCancel, onSaved }: FormatEditorP
         id: makeId(),
         type: "highlight",
         page: pageNumber,
+        pageWidth: event.currentTarget.width,
+        pageHeight: event.currentTarget.height,
         x: point.x,
         y: point.y,
         width: 1,
@@ -488,6 +494,8 @@ export default function PdfEditor({ document, onCancel, onSaved }: FormatEditorP
       id: makeId(),
       type: "stroke",
       page: pageNumber,
+      pageWidth: event.currentTarget.width,
+      pageHeight: event.currentTarget.height,
       points: [point],
       color,
       size: brushSize,
@@ -651,6 +659,19 @@ export default function PdfEditor({ document, onCancel, onSaved }: FormatEditorP
     ];
   }
 
+  function withPageDimensions(annotation: PdfAnnotation): PdfAnnotation {
+    const canvas = annotationCanvasRefs.current[annotation.page];
+    if (!canvas) return annotation;
+    if ("pageWidth" in annotation && annotation.pageWidth && annotation.pageHeight) {
+      return annotation;
+    }
+    return {
+      ...annotation,
+      pageWidth: canvas.width,
+      pageHeight: canvas.height,
+    };
+  }
+
   function startEditingText(annotation: PdfTextAnnotation) {
     const canvas = annotationCanvasRefs.current[annotation.page];
     if (!canvas) return;
@@ -709,7 +730,7 @@ export default function PdfEditor({ document, onCancel, onSaved }: FormatEditorP
     if (saving) return true;
     setSaving(true);
     setError(null);
-    const annotationsToSave = getAnnotationsWithDraft();
+    const annotationsToSave = getAnnotationsWithDraft().map(withPageDimensions);
     annotationsRef.current = annotationsToSave;
     setAnnotations(annotationsToSave);
     setTextDraft(null);

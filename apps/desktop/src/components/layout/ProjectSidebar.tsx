@@ -3,7 +3,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   ChevronLeft,
   ChevronRight,
-  FolderKanban,
+  Home,
   LogOut,
   Plus,
   Search,
@@ -32,7 +32,7 @@ type ProjectSidebarProps = {
 export default function ProjectSidebar({ onSignOut }: ProjectSidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [query, setQuery] = useState("");
@@ -121,10 +121,10 @@ export default function ProjectSidebar({ onSignOut }: ProjectSidebarProps) {
 
   return (
     <aside
-      className="relative flex h-full shrink-0 flex-col border-r border-slate-200 bg-white transition-[width] duration-200"
+      className="project-sidebar relative flex h-full shrink-0 flex-col border-r border-slate-300 bg-slate-100 transition-[width] duration-200"
       style={{ width: collapsed ? COLLAPSED_WIDTH : width }}
     >
-      <div className="flex h-16 items-center gap-3 border-b border-slate-200 px-4">
+      <div className="flex h-16 items-center gap-3 border-b border-slate-300 px-4">
         {!collapsed && (
           <button
             type="button"
@@ -152,7 +152,7 @@ export default function ProjectSidebar({ onSignOut }: ProjectSidebarProps) {
         <button
           type="button"
           onClick={() => setCollapsed((value) => !value)}
-          className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"
+          className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 bg-white/70 text-slate-600 hover:bg-white"
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
@@ -161,7 +161,7 @@ export default function ProjectSidebar({ onSignOut }: ProjectSidebarProps) {
       </div>
 
       {!collapsed && (
-        <div className="border-b border-slate-200 p-4">
+        <div className="border-b border-slate-300 p-4">
           <div className="relative">
             <Search
               size={16}
@@ -171,7 +171,7 @@ export default function ProjectSidebar({ onSignOut }: ProjectSidebarProps) {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search projects"
-              className="h-10 w-full rounded-md border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+              className="h-10 w-full rounded-md border border-slate-300 bg-white pl-9 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
             />
           </div>
         </div>
@@ -179,25 +179,20 @@ export default function ProjectSidebar({ onSignOut }: ProjectSidebarProps) {
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
         {collapsed ? (
-          <div className="space-y-2">
-            {projects.map((project) => (
-              <NavLink
-                key={project.id}
-                to={`/projects/${project.id}`}
-                className={({ isActive }) =>
-                  [
-                    "flex h-10 w-10 items-center justify-center rounded-md",
-                    isActive
-                      ? "bg-blue-600 text-white"
-                      : "text-slate-600 hover:bg-slate-100",
-                  ].join(" ")
-                }
-                title={project.name}
-              >
-                <FolderKanban size={18} />
-              </NavLink>
-            ))}
-          </div>
+          <button
+            type="button"
+            onClick={() => navigate("/dashboard")}
+            className={[
+              "flex h-10 w-10 items-center justify-center rounded-md transition",
+              location.pathname === "/dashboard"
+                ? "bg-blue-600 text-white"
+                : "text-slate-600 hover:bg-slate-100",
+            ].join(" ")}
+            aria-label="Go to home"
+            title="Go to home"
+          >
+            <Home size={18} />
+          </button>
         ) : (
           <div className="space-y-1">
             {error && (
@@ -215,7 +210,7 @@ export default function ProjectSidebar({ onSignOut }: ProjectSidebarProps) {
                     "block rounded-md px-3 py-2 text-sm transition",
                     isActive
                       ? "bg-blue-50 font-semibold text-blue-700"
-                      : "text-slate-700 hover:bg-slate-100",
+                      : "text-slate-700 hover:bg-white",
                   ].join(" ")
                 }
               >
@@ -236,7 +231,7 @@ export default function ProjectSidebar({ onSignOut }: ProjectSidebarProps) {
                     if (event.key === "Enter") void createProject();
                   }}
                   placeholder="New project"
-                  className="h-10 min-w-0 flex-1 rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                  className="h-10 min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                 />
                 <button
                   type="button"
@@ -254,7 +249,7 @@ export default function ProjectSidebar({ onSignOut }: ProjectSidebarProps) {
         )}
       </div>
 
-      <div className="relative border-t border-slate-200 p-3">
+      <div className="relative border-t border-slate-300 p-3">
         {settingsOpen && !collapsed && (
           <div className="absolute bottom-14 right-3 z-30 w-48 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
             <div className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">

@@ -6,8 +6,10 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Maximize2,
   MoreHorizontal,
   MessageSquare,
+  Minimize2,
   Pencil,
   Plus,
 } from "lucide-react";
@@ -32,6 +34,8 @@ type MsgRow = {
 
 type ProjectCopilotSidebarProps = {
   projectId: string;
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
 };
 
 type CopilotView = "sessions" | "conversation";
@@ -140,6 +144,8 @@ function FormattedAssistantMessage({ content }: { content: string }) {
 
 export default function ProjectCopilotSidebar({
   projectId,
+  expanded = false,
+  onExpandedChange,
 }: ProjectCopilotSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [width, setWidth] = useState(DEFAULT_WIDTH);
@@ -197,6 +203,12 @@ export default function ProjectCopilotSidebar({
 
     const rows = (data ?? []) as ChatRow[];
     setChats(rows);
+    const latestChat = rows[0];
+    if (latestChat) {
+      setChatId(latestChat.id);
+      setView("conversation");
+      await loadMessages(latestChat.id);
+    }
   }
 
   useEffect(() => {
@@ -342,6 +354,7 @@ export default function ProjectCopilotSidebar({
   }
 
   function startResize(event: React.PointerEvent<HTMLDivElement>) {
+    if (expanded) return;
     event.preventDefault();
     const startX = event.clientX;
     const startWidth = width;
@@ -366,10 +379,13 @@ export default function ProjectCopilotSidebar({
 
   return (
     <aside
-      className="relative flex h-full shrink-0 flex-col border-l border-slate-200 bg-white transition-[width] duration-200"
-      style={{ width: collapsed ? COLLAPSED_WIDTH : width }}
+      className={[
+        "relative flex h-full flex-col border-l border-slate-200 bg-white transition-[width] duration-200",
+        expanded ? "min-w-0 flex-1" : "shrink-0",
+      ].join(" ")}
+      style={{ width: expanded ? undefined : collapsed ? COLLAPSED_WIDTH : width }}
     >
-      {!collapsed && (
+      {!collapsed && !expanded && (
         <div
           role="separator"
           aria-orientation="vertical"
@@ -383,6 +399,7 @@ export default function ProjectCopilotSidebar({
         <button
           type="button"
           onClick={() => setCollapsed((value) => !value)}
+          disabled={expanded}
           className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"
           aria-label={collapsed ? "Expand copilot" : "Collapse copilot"}
           title={collapsed ? "Expand copilot" : "Collapse copilot"}
@@ -401,6 +418,15 @@ export default function ProjectCopilotSidebar({
               </div>
               <div className="text-xs text-slate-500">Scoped to this project</div>
             </div>
+            <button
+              type="button"
+              onClick={() => onExpandedChange?.(!expanded)}
+              className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"
+              aria-label={expanded ? "Diminish copilot" : "Expand copilot workspace"}
+              title={expanded ? "Diminish copilot" : "Expand copilot workspace"}
+            >
+              {expanded ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
+            </button>
           </>
         )}
       </div>

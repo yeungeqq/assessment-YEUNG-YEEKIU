@@ -1,6 +1,7 @@
 // src/pages/Document.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
+import { invoke } from "@tauri-apps/api/core";
 import JSZip from "jszip";
 import DownloadButton from "../components/DownloadButton";
 import DeleteButton from "../components/DeleteButton";
@@ -176,7 +177,9 @@ export default function Document({ onPreviewChange }: DocumentProps = {}) {
 
   const [open, setOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -254,15 +257,51 @@ export default function Document({ onPreviewChange }: DocumentProps = {}) {
 
   async function downloadDoc(doc: DocRow) {
     setErr(null);
+    setNotice(null);
+    setDownloadingId(doc.id);
 
-    const { data, error } = await API.createDownloadUrl(doc.id);
+    try {
+      const { data, error } = await API.downloadExportedDocument(doc.id);
 
-    if (error || !data?.signedUrl) {
-      setErr(error?.message ?? "Failed to create download link.");
+      if (error || !data?.blob) {
+        setErr(error?.message ?? "Failed to download document.");
+        return;
+      }
+
+      const filename = data.filename || doc.title || "document";
+
+      const buffer = await data.blob.arrayBuffer();
+      const savedPath = await invoke<string>("save_file_to_downloads", {
+        filename,
+        bytes: Array.from(new Uint8Array(buffer)),
+      });
+      setNotice(`Downloaded to ${savedPath}`);
       return;
-    }
+    } catch (e) {
+      const isTauri = Boolean((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__);
+      if (isTauri) {
+        setErr(e instanceof Error ? e.message : "Failed to save downloaded document.");
+        return;
+      }
 
-    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+      const { data } = await API.downloadExportedDocument(doc.id);
+      if (!data?.blob) {
+        setErr("Failed to download document.");
+        return;
+      }
+
+      const filename = data.filename || doc.title || "document";
+      const url = URL.createObjectURL(data.blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloadingId((current) => (current === doc.id ? null : current));
+    }
   }
 
   async function openPreview(doc: DocRow) {
@@ -375,6 +414,7 @@ export default function Document({ onPreviewChange }: DocumentProps = {}) {
   async function onUpload(file: File) {
     setUploading(true);
     setErr(null);
+    setNotice(null);
 
     try {
       // --------------------------
@@ -453,6 +493,12 @@ export default function Document({ onPreviewChange }: DocumentProps = {}) {
       {err && (
         <div className="mx-8 mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {err}
+        </div>
+      )}
+
+      {notice && (
+        <div className="mx-8 mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          {notice}
         </div>
       )}
 
@@ -628,7 +674,10 @@ export default function Document({ onPreviewChange }: DocumentProps = {}) {
                 </div>
 
                 <div className="col-span-3 flex justify-center gap-3">
-                  <DownloadButton onClick={() => void downloadDoc(d)} />
+                  <DownloadButton
+                    onClick={() => void downloadDoc(d)}
+                    disabled={downloadingId === d.id}
+                  />
                   <DeleteButton onClick={() => openDeleteModal(d)} />
                 </div>
               </div>

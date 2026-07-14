@@ -18,6 +18,10 @@
     background-color: #1d2226 !important;
   }
 
+  .dark .bg-white\/70 {
+    background-color: #22272b !important;
+  }
+
   .dark .bg-slate-50 {
     background-color: #101418 !important;
   }
@@ -60,6 +64,7 @@
 
   .dark .border-slate-100,
   .dark .border-slate-200,
+  .dark .border-slate-300,
   .dark .border-indigo-100 {
     border-color: #38434f !important;
   }
