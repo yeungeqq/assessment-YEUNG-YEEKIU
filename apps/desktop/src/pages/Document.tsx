@@ -22,7 +22,7 @@ type PreviewState = {
   doc: DocRow;
   url?: string;
   text?: string;
-  kind: "document" | "image" | "text";
+  kind: "document" | "image" | "pdf" | "text";
 };
 
 function inferMimeType(name: string) {
@@ -32,6 +32,7 @@ function inferMimeType(name: string) {
     return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
   if (lower.endsWith(".doc")) return "application/msword";
   if (lower.endsWith(".txt")) return "text/plain";
+  if (/\.(md|csv|json|log)$/i.test(name)) return "text/plain";
   if (lower.endsWith(".png")) return "image/png";
   if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
   if (lower.endsWith(".gif")) return "image/gif";
@@ -41,13 +42,18 @@ function inferMimeType(name: string) {
   return "";
 }
 
+function replaceExtension(name: string, extension: string) {
+  const baseName = name.replace(/\.[^.]+$/, "") || "document";
+  return `${baseName}.${extension}`;
+}
+
 function isAllowedDoc(name: string) {
   const lower = name.toLowerCase();
   return (
     lower.endsWith(".pdf") ||
     lower.endsWith(".doc") ||
     lower.endsWith(".docx") ||
-    lower.endsWith(".txt") ||
+    isTextFile(name) ||
     isImageFile(name)
   );
 }
@@ -58,7 +64,7 @@ function isIngestableDoc(name: string) {
     lower.endsWith(".pdf") ||
     lower.endsWith(".doc") ||
     lower.endsWith(".docx") ||
-    lower.endsWith(".txt") ||
+    isTextFile(name) ||
     isImageFile(name)
   );
 }
@@ -67,9 +73,7 @@ function isPreviewableDoc(name: string) {
   const lower = name.toLowerCase();
   return (
     lower.endsWith(".pdf") ||
-    lower.endsWith(".doc") ||
-    lower.endsWith(".docx") ||
-    lower.endsWith(".txt") ||
+    isTextFile(name) ||
     isImageFile(name)
   );
 }
@@ -78,14 +82,78 @@ function isImageFile(name: string) {
   return /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name);
 }
 
+function isTextFile(name: string) {
+  return /\.(txt|md|csv|json|log)$/i.test(name);
+}
+
+async function convertImageToJpeg(file: File) {
+  if (file.type === "image/jpeg" && /\.jpe?g$/i.test(file.name)) {
+    return file;
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error(`Failed to convert image: ${file.name}`));
+      image.src = objectUrl;
+    });
+
+    const canvas = document.createElement("canvas");
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Image conversion is not available.");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(image, 0, 0);
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (nextBlob) => {
+          if (nextBlob) resolve(nextBlob);
+          else reject(new Error(`Failed to convert image: ${file.name}`));
+        },
+        "image/jpeg",
+        0.92
+      );
+    });
+
+    return new File([blob], replaceExtension(file.name, "jpg"), {
+      type: "image/jpeg",
+    });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function normalizeFileBeforeUpload(file: File) {
+  if (isImageFile(file.name)) {
+    return convertImageToJpeg(file);
+  }
+
+  if (isTextFile(file.name)) {
+    const text = await file.text();
+    return new File([text], replaceExtension(file.name, "txt"), {
+      type: "text/plain",
+    });
+  }
+
+  return file;
+}
+
 function previewKind(doc: DocRow): PreviewState["kind"] {
   const name = doc.title ?? doc.file_path;
   if ((doc.mime_type ?? "").startsWith("image/") || isImageFile(name)) {
     return "image";
   }
+  if ((doc.mime_type ?? "") === "application/pdf" || name.toLowerCase().endsWith(".pdf")) {
+    return "pdf";
+  }
   if (
     (doc.mime_type ?? "") === "text/plain" ||
-    /\.(docx?|txt)$/i.test(name)
+    isTextFile(name)
   ) {
     return "text";
   }
@@ -202,7 +270,7 @@ export default function Document({ onPreviewChange }: DocumentProps = {}) {
     setPreviewLoading(true);
 
     const kind = previewKind(doc);
-    if (kind === "image") {
+    if (kind === "image" || kind === "pdf") {
       setPreview({ doc, kind });
       setEditing(true);
       setPreviewLoading(false);
@@ -276,13 +344,17 @@ export default function Document({ onPreviewChange }: DocumentProps = {}) {
 
     if (!isAllowedDoc(file.name)) {
       throw new Error(
-        `Unsupported file: ${file.name}. Upload PDF, DOC, DOCX, TXT, or image files.`
+        `Unsupported file: ${file.name}. Upload PDF, DOC, DOCX, text, or image files.`
       );
     }
 
-    // Ensure mime type exists (important for backend extractor)
-    const mime = file.type || inferMimeType(file.name);
-    const fixedFile = mime ? new File([file], file.name, { type: mime }) : file;
+    const normalizedFile = await normalizeFileBeforeUpload(file);
+
+    // Ensure mime type exists (important for backend extractor/converter)
+    const mime = normalizedFile.type || inferMimeType(normalizedFile.name);
+    const fixedFile = mime
+      ? new File([normalizedFile], normalizedFile.name, { type: mime })
+      : normalizedFile;
 
     const upload = await API.uploadDocumentFile({
       file: fixedFile,
@@ -360,7 +432,7 @@ export default function Document({ onPreviewChange }: DocumentProps = {}) {
       // --------------------------
       if (!isAllowedDoc(file.name)) {
         throw new Error(
-          "Only PDF, DOC, DOCX, TXT, image, or ZIP files are allowed."
+            "Only PDF, DOC, DOCX, text, image, or ZIP files are allowed."
         );
       }
 
@@ -394,7 +466,7 @@ export default function Document({ onPreviewChange }: DocumentProps = {}) {
               document={preview.doc}
               initialText={preview.text}
               onCancel={() => {
-                if (preview.kind === "image" || preview.kind === "text") {
+                if (preview.kind === "image" || preview.kind === "pdf" || preview.kind === "text") {
                   setEditing(false);
                   setPreview(null);
                   return;
@@ -592,7 +664,7 @@ export default function Document({ onPreviewChange }: DocumentProps = {}) {
               <label className="block">
                 <input
                   type="file"
-                  accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.gif,.webp,.bmp,.svg,.zip"
+                  accept=".pdf,.doc,.docx,.txt,.md,.csv,.json,.log,.png,.jpg,.jpeg,.gif,.webp,.bmp,.svg,.zip"
                   disabled={uploading}
                   onChange={(e) => {
                     const f = e.target.files?.[0];

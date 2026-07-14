@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Circle, MousePointer2, Pencil, Save, Trash2, Type, Undo2 } from "lucide-react";
+import { Circle, MousePointer2, Pencil, Save, Trash2, Type, Undo2, ZoomIn, ZoomOut } from "lucide-react";
 import * as API from "../../Api";
 import ConfirmModal from "../common/ConfirmModal";
 import type { FormatEditorProps } from "./editor.types";
@@ -40,6 +40,9 @@ type DragState = {
 };
 
 const COLORS = ["#2563eb", "#111827", "#ef4444", "#f59e0b", "#10b981"];
+const MIN_ZOOM = 0.4;
+const MAX_ZOOM = 2.5;
+const ZOOM_STEP = 0.15;
 
 function makeId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -77,6 +80,7 @@ export default function ImageEditor({ document, onCancel, onSaved }: FormatEdito
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
+  const [zoom, setZoom] = useState(1);
 
   useEffect(() => {
     annotationsRef.current = annotations;
@@ -573,6 +577,7 @@ export default function ImageEditor({ document, onCancel, onSaved }: FormatEdito
   const selectedTextAnnotation = annotations.find(
     (annotation): annotation is TextAnnotation => annotation.id === selectedId && annotation.type === "text"
   );
+  const canvas = canvasRef.current;
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-white">
@@ -651,6 +656,30 @@ export default function ImageEditor({ document, onCancel, onSaved }: FormatEdito
             />
           </label>
         )}
+
+        <div className="flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 p-1">
+          <button
+            type="button"
+            onClick={() => setZoom((value) => Math.max(MIN_ZOOM, Number((value - ZOOM_STEP).toFixed(2))))}
+            disabled={zoom <= MIN_ZOOM}
+            className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-600 hover:bg-white disabled:opacity-50"
+            title="Zoom out"
+          >
+            <ZoomOut size={15} />
+          </button>
+          <span className="w-12 text-center text-xs font-semibold text-slate-600">
+            {Math.round(zoom * 100)}%
+          </span>
+          <button
+            type="button"
+            onClick={() => setZoom((value) => Math.min(MAX_ZOOM, Number((value + ZOOM_STEP).toFixed(2))))}
+            disabled={zoom >= MAX_ZOOM}
+            className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-600 hover:bg-white disabled:opacity-50"
+            title="Zoom in"
+          >
+            <ZoomIn size={15} />
+          </button>
+        </div>
 
         <button
           type="button"
@@ -731,9 +760,17 @@ export default function ImageEditor({ document, onCancel, onSaved }: FormatEdito
             onPointerCancel={finishStroke}
             onDoubleClick={onCanvasDoubleClick}
             className={[
-              "block max-h-full max-w-full touch-none bg-white shadow-sm",
+              "block touch-none bg-white shadow-sm",
               loading ? "hidden" : tool === "select" ? "cursor-move" : "cursor-crosshair",
             ].join(" ")}
+            style={
+              canvas
+                ? {
+                    width: canvas.width * zoom,
+                    height: canvas.height * zoom,
+                  }
+                : undefined
+            }
           />
           {textDraft && (
             <input

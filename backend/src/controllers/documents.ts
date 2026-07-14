@@ -20,6 +20,7 @@ import {
   INGEST_REQUEST_SCHEMA,
   isSupportedDocumentMimeType,
 } from "../services/documentIngestService.js";
+import { normalizeDocumentUpload } from "../services/documentConversionService.js";
 import {
   refreshDocumentContext,
   replaceDocumentFileAndRefresh,
@@ -46,23 +47,28 @@ const DOCUMENT_ANNOTATIONS_SCHEMA = z.object({
 
 function annotationsToSearchableText(annotations: unknown[]) {
   const textAnnotations = annotations
-    .filter((annotation): annotation is { type: string; text?: unknown } => {
+    .filter((annotation): annotation is { type: string; text?: unknown; page?: unknown } => {
       return (
         Boolean(annotation) &&
         typeof annotation === "object" &&
-        (annotation as { type?: unknown }).type === "text"
+        (annotation as { type?: unknown }).type === "text" &&
+        typeof (annotation as { text?: unknown }).text === "string" &&
+        (annotation as { text?: string }).text!.trim().length > 0
       );
-    })
-    .map((annotation) =>
-      typeof annotation.text === "string" ? annotation.text.trim() : ""
-    )
-    .filter(Boolean);
+    });
 
   if (textAnnotations.length === 0) return "";
 
   return [
-    "User-added image annotations:",
-    ...textAnnotations.map((text, index) => `Text box ${index + 1}: ${text}`),
+    "User-added document annotations:",
+    ...textAnnotations.map((annotation, index) => {
+      const text = typeof annotation.text === "string" ? annotation.text.trim() : "";
+      const page =
+        typeof annotation.page === "number" && Number.isFinite(annotation.page)
+          ? ` on page ${annotation.page}`
+          : "";
+      return `Text box ${index + 1}${page}: ${text}`;
+    }),
   ].join("\n");
 }
 
@@ -104,26 +110,32 @@ documentsRouter.post(
     let createdDocumentId: string | null = null;
 
     try {
+      const normalizedUpload = await normalizeDocumentUpload({
+        body: req.body,
+        title: parsed.data.title,
+        mimeType: parsed.data.mimeType ?? null,
+      });
+
       const document = await createDocumentRecord({
         userId: req.userId!,
         projectId: parsed.data.projectId ?? null,
         folderId: parsed.data.folderId ?? null,
-        title: parsed.data.title,
+        title: normalizedUpload.title,
         filePath: "pending",
-        mimeType: parsed.data.mimeType ?? null,
+        mimeType: normalizedUpload.mimeType,
       });
       createdDocumentId = document.id;
 
       const projectSegment = parsed.data.projectId
         ? `projects/${parsed.data.projectId}`
         : "global";
-      const safeName = parsed.data.title.replace(/[^a-zA-Z0-9._-]+/g, "_");
+      const safeName = normalizedUpload.title.replace(/[^a-zA-Z0-9._-]+/g, "_");
       const objectKey = `${req.userId}/${projectSegment}/${document.id}/${safeName}`;
 
       await uploadObject({
         key: objectKey,
-        body: req.body,
-        contentType: parsed.data.mimeType ?? null,
+        body: normalizedUpload.body,
+        contentType: normalizedUpload.mimeType,
       });
 
       await updateDocumentFilePath(document.id, req.userId!, objectKey);
