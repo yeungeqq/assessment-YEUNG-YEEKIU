@@ -20,6 +20,25 @@ export default function TextEditor({
     lastSavedTextRef.current = initialText;
   }, [initialText, document.id]);
 
+  useEffect(() => {
+    function preventBackNavigation(event: KeyboardEvent) {
+      if (event.key !== "Backspace") return;
+      const target = event.target;
+      const isEditable =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        (target instanceof HTMLElement && target.isContentEditable);
+
+      if (!isEditable) {
+        event.preventDefault();
+      }
+    }
+
+    window.addEventListener("keydown", preventBackNavigation);
+    return () => window.removeEventListener("keydown", preventBackNavigation);
+  }, []);
+
   async function save(closeAfterSave = false) {
     setSaving(true);
     setError(null);

@@ -7,6 +7,7 @@ import {
   LogOut,
   Plus,
   Search,
+  Settings,
 } from "lucide-react";
 import * as API from "../../Api";
 
@@ -14,6 +15,7 @@ const COLLAPSED_WIDTH = 64;
 const DEFAULT_WIDTH = 320;
 const MIN_WIDTH = 240;
 const MAX_WIDTH = 520;
+const APPEARANCE_KEY = "cortexdocs.appearance";
 
 type ProjectRow = {
   id: string;
@@ -37,6 +39,11 @@ export default function ProjectSidebar({ onSignOut }: ProjectSidebarProps) {
   const [creating, setCreating] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [appearance, setAppearance] = useState<"light" | "dark">(() => {
+    const saved = localStorage.getItem(APPEARANCE_KEY);
+    return saved === "dark" ? "dark" : "light";
+  });
 
   async function loadProjects() {
     const { data, error } = await API.fetchProjects();
@@ -51,6 +58,11 @@ export default function ProjectSidebar({ onSignOut }: ProjectSidebarProps) {
   useEffect(() => {
     void loadProjects();
   }, [location.pathname]);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", appearance === "dark");
+    localStorage.setItem(APPEARANCE_KEY, appearance);
+  }, [appearance]);
 
   const filteredProjects = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -242,13 +254,44 @@ export default function ProjectSidebar({ onSignOut }: ProjectSidebarProps) {
         )}
       </div>
 
-      <div className="border-t border-slate-200 p-3">
+      <div className="relative border-t border-slate-200 p-3">
+        {settingsOpen && !collapsed && (
+          <div className="absolute bottom-14 right-3 z-30 w-48 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
+            <div className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Appearance
+            </div>
+            {[
+              { value: "light", label: "Light mode" },
+              { value: "dark", label: "Dark mode" },
+            ].map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  setAppearance(option.value as "light" | "dark");
+                  setSettingsOpen(false);
+                }}
+                className={[
+                  "flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-semibold",
+                  appearance === option.value
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-slate-700 hover:bg-slate-100",
+                ].join(" ")}
+              >
+                <span>{option.label}</span>
+                {appearance === option.value && <span>✓</span>}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className={collapsed ? "flex justify-center" : "flex gap-2"}>
         <button
           type="button"
           onClick={onSignOut}
           className={[
             "flex h-10 items-center rounded-md text-sm font-semibold text-slate-700 hover:bg-slate-100",
-            collapsed ? "w-10 justify-center" : "w-full gap-2 px-3",
+            collapsed ? "w-10 justify-center" : "min-w-0 flex-1 gap-2 px-3",
           ].join(" ")}
           aria-label="Log out"
           title="Log out"
@@ -256,6 +299,18 @@ export default function ProjectSidebar({ onSignOut }: ProjectSidebarProps) {
           <LogOut size={18} />
           {!collapsed && <span>Log Out</span>}
         </button>
+        {!collapsed && (
+          <button
+            type="button"
+            onClick={() => setSettingsOpen((value) => !value)}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-slate-700 hover:bg-slate-100"
+            aria-label="Settings"
+            title="Settings"
+          >
+            <Settings size={18} />
+          </button>
+        )}
+        </div>
       </div>
 
       {!collapsed && (

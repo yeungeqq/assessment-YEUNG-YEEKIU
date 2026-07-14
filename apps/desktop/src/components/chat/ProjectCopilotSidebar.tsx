@@ -642,7 +642,7 @@ export default function ProjectCopilotSidebar({
                       <select
                         value={llmModelId}
                         onChange={(event) => setLlmModelId(event.target.value)}
-                        className="h-8 max-w-[200px] appearance-none rounded-md bg-transparent py-0 pl-2 pr-6 text-xs font-medium text-slate-600 outline-none hover:bg-white focus:bg-white focus:text-slate-900"
+                        className="h-8 max-w-[160px] appearance-none rounded-md bg-transparent py-0 pl-2 pr-6 text-xs font-medium text-slate-600 outline-none hover:bg-white focus:bg-white focus:text-slate-900"
                         aria-label="LLM model"
                         title="LLM model"
                       >

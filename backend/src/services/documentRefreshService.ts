@@ -34,8 +34,17 @@ export async function refreshDocumentContext({
   }
 
   const buffer = await downloadObjectBuffer(filePath);
-  const extractedText = await extractTextFromFile(buffer, mimeType);
-  const text = [extractedText, additionalText].filter(Boolean).join("\n\n");
+  let extractedText = "";
+  try {
+    extractedText = await extractTextFromFile(buffer, mimeType);
+  } catch (error) {
+    if (!additionalText?.trim()) {
+      throw error;
+    }
+  }
+  // Put user edits/annotations first so they are never truncated away by MAX_CHUNKS
+  // on large source documents.
+  const text = [additionalText, extractedText].filter(Boolean).join("\n\n");
 
   if (!text.trim()) {
     throw new Error("No extractable text found.");

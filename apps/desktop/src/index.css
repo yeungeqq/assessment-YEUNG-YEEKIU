@@ -1,3 +1,217 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  .dark body {
+    background: #101418;
+    color: #e8e6df;
+  }
+}
+
+@layer utilities {
+  .dark {
+    color-scheme: dark;
+  }
+
+  .dark .bg-white {
+    background-color: #1d2226 !important;
+  }
+
+  .dark .bg-slate-50 {
+    background-color: #101418 !important;
+  }
+
+  .dark .bg-slate-100 {
+    background-color: #161b1f !important;
+  }
+
+  .dark .bg-slate-200 {
+    background-color: #2d3338 !important;
+  }
+
+  .dark .bg-blue-50 {
+    background-color: rgba(112, 181, 249, 0.14) !important;
+  }
+
+  .dark .bg-blue-100\/70,
+  .dark .bg-blue-200 {
+    background-color: #22272b !important;
+  }
+
+  .dark .bg-indigo-100\/60 {
+    background-color: #22272b !important;
+  }
+
+  .dark .bg-blue-600,
+  .dark .bg-indigo-600 {
+    background-color: #0a66c2 !important;
+  }
+
+  .dark .hover\:bg-blue-700:hover,
+  .dark .hover\:bg-indigo-700:hover {
+    background-color: #004182 !important;
+  }
+
+  .dark .hover\:bg-blue-300:hover,
+  .dark .hover\:bg-slate-300:hover {
+    background-color: #38434f !important;
+  }
+
+  .dark .border-slate-100,
+  .dark .border-slate-200,
+  .dark .border-indigo-100 {
+    border-color: #38434f !important;
+  }
+
+  .dark .border-blue-200,
+  .dark .border-blue-300,
+  .dark .focus\:border-blue-400:focus {
+    border-color: #70b5f9 !important;
+  }
+
+  .dark .shadow-sm,
+  .dark .shadow-md,
+  .dark .shadow-lg,
+  .dark .shadow-xl {
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28) !important;
+  }
+
+  .dark .text-slate-900,
+  .dark .text-slate-800,
+  .dark .text-slate-700 {
+    color: #e8e6df !important;
+  }
+
+  .dark .text-slate-600,
+  .dark .text-slate-500 {
+    color: #b0b8bf !important;
+  }
+
+  .dark .text-slate-400 {
+    color: #8c98a4 !important;
+  }
+
+  .dark .text-blue-600,
+  .dark .text-blue-700 {
+    color: #70b5f9 !important;
+  }
+
+  .dark .text-white {
+    color: #ffffff !important;
+  }
+
+  .dark .hover\:bg-slate-50:hover,
+  .dark .hover\:bg-slate-100:hover,
+  .dark .hover\:bg-white:hover {
+    background-color: #2d3338 !important;
+  }
+
+  .dark .hover\:border-blue-200:hover {
+    border-color: #70b5f9 !important;
+  }
+
+  .dark .focus\:ring-blue-100:focus,
+  .dark .focus\:ring-blue-500:focus,
+  .dark .focus\:ring-indigo-500:focus {
+    --tw-ring-color: rgba(112, 181, 249, 0.38) !important;
+  }
+
+  .dark input,
+  .dark textarea,
+  .dark select {
+    background-color: #22272b;
+    color: #e8e6df;
+    border-color: #38434f;
+  }
+
+  .dark input::placeholder,
+  .dark textarea::placeholder {
+    color: #8c98a4;
+  }
+
+  .dark table,
+  .dark pre {
+    background-color: #1d2226;
+    color: #e8e6df;
+  }
+
+  .dark .bg-red-50 {
+    background-color: rgba(220, 38, 38, 0.14) !important;
+  }
+
+  .dark .border-red-200 {
+    border-color: rgba(248, 113, 113, 0.42) !important;
+  }
+
+  .dark .text-red-700,
+  .dark .text-red-600 {
+    color: #fca5a5 !important;
+  }
+
+  .dark .bg-emerald-50 {
+    background-color: rgba(5, 84, 70, 0.62) !important;
+  }
+
+  .dark .border-emerald-200 {
+    border-color: #34d399 !important;
+  }
+
+  .dark .text-emerald-700 {
+    color: #6ee7b7 !important;
+  }
+
+  .dark .document-download-button {
+    background-color: rgba(6, 78, 59, 0.58) !important;
+    border-color: #6ee7b7 !important;
+    color: #34d399 !important;
+  }
+
+  .dark .document-download-button:hover {
+    background-color: rgba(6, 95, 70, 0.78) !important;
+  }
+
+  .dark .hover\:bg-emerald-100:hover {
+    background-color: rgba(6, 118, 95, 0.72) !important;
+  }
+
+  .dark .bg-red-100\/60 {
+    background-color: rgba(127, 29, 29, 0.56) !important;
+  }
+
+  .dark .border-red-200\/70 {
+    border-color: #fca5a5 !important;
+  }
+
+  .dark .document-delete-button {
+    background-color: rgba(127, 29, 29, 0.58) !important;
+    border-color: #fca5a5 !important;
+    color: #fca5a5 !important;
+  }
+
+  .dark .document-delete-button:hover {
+    background-color: rgba(153, 27, 27, 0.78) !important;
+  }
+
+  .dark .hover\:bg-red-200\/70:hover {
+    background-color: rgba(153, 27, 27, 0.68) !important;
+  }
+
+  .dark .rounded-xl.border.border-slate-200.bg-slate-50 {
+    background-color: #12233a !important;
+    border-color: #2d4f76 !important;
+  }
+
+  .dark .rounded-xl.border.border-slate-200.bg-slate-50 textarea {
+    background-color: #12233a !important;
+  }
+
+  .dark .rounded-xl.border.border-slate-200.bg-slate-50 select {
+    background-color: #12233a !important;
+  }
+
+  .dark .rounded-xl.border.border-slate-200.bg-slate-50 .hover\:bg-white:hover,
+  .dark .rounded-xl.border.border-slate-200.bg-slate-50 .focus\:bg-white:focus {
+    background-color: #17304f !important;
+  }
+}

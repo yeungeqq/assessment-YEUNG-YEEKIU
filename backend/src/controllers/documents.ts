@@ -45,9 +45,49 @@ const DOCUMENT_ANNOTATIONS_SCHEMA = z.object({
   annotations: z.array(z.unknown()),
 });
 
+function annotationLocation(annotation: {
+  x?: unknown;
+  y?: unknown;
+  pageWidth?: unknown;
+  pageHeight?: unknown;
+}) {
+  const x = typeof annotation.x === "number" ? annotation.x : null;
+  const y = typeof annotation.y === "number" ? annotation.y : null;
+  const pageWidth =
+    typeof annotation.pageWidth === "number" && annotation.pageWidth > 0
+      ? annotation.pageWidth
+      : null;
+  const pageHeight =
+    typeof annotation.pageHeight === "number" && annotation.pageHeight > 0
+      ? annotation.pageHeight
+      : null;
+
+  if (x === null || y === null || pageWidth === null || pageHeight === null) {
+    return "";
+  }
+
+  const horizontal =
+    x < pageWidth / 3 ? "left" : x > (pageWidth * 2) / 3 ? "right" : "center";
+  const vertical =
+    y < pageHeight / 3 ? "top" : y > (pageHeight * 2) / 3 ? "bottom" : "middle";
+
+  if (vertical === "middle" && horizontal === "center") return "center";
+  if (vertical === "middle") return `${horizontal} side`;
+  if (horizontal === "center") return `${vertical} center`;
+  return `${vertical} ${horizontal} corner`;
+}
+
 function annotationsToSearchableText(annotations: unknown[]) {
   const textAnnotations = annotations
-    .filter((annotation): annotation is { type: string; text?: unknown; page?: unknown } => {
+    .filter((annotation): annotation is {
+      type: string;
+      text?: unknown;
+      page?: unknown;
+      x?: unknown;
+      y?: unknown;
+      pageWidth?: unknown;
+      pageHeight?: unknown;
+    } => {
       return (
         Boolean(annotation) &&
         typeof annotation === "object" &&
@@ -67,7 +107,9 @@ function annotationsToSearchableText(annotations: unknown[]) {
         typeof annotation.page === "number" && Number.isFinite(annotation.page)
           ? ` on page ${annotation.page}`
           : "";
-      return `Text box ${index + 1}${page}: ${text}`;
+      const location = annotationLocation(annotation);
+      const locationText = location ? ` at the ${location}` : "";
+      return `Text box ${index + 1}${page}${locationText}. Text content: ${text}. User-added visible annotation text: ${text}.`;
     }),
   ].join("\n");
 }

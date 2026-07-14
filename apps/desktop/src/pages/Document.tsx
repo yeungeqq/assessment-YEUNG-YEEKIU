@@ -482,7 +482,7 @@ export default function Document({ onPreviewChange }: DocumentProps = {}) {
                   void loadDocs();
                   return;
                 }
-                void handleEditorSaved();
+                void loadDocs();
               }}
             />
           ) : (

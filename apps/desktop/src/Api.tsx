@@ -391,7 +391,7 @@ export async function saveDocumentAnnotations<T = unknown>(
   documentId: string,
   annotations: T[]
 ) {
-  return backendRequest<{ annotations: T[] }>(
+  return backendRequest<{ annotations: T[]; chunks: number }>(
     `/documents/${documentId}/annotations`,
     {
       method: "PUT",

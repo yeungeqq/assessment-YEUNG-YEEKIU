@@ -36,6 +36,8 @@ type PdfTextAnnotation = {
   id: string;
   type: "text";
   page: number;
+  pageWidth?: number;
+  pageHeight?: number;
   x: number;
   y: number;
   text: string;
@@ -46,6 +48,8 @@ type PdfAnnotation = PdfStrokeAnnotation | PdfHighlightAnnotation | PdfTextAnnot
 type Tool = "select" | "pen" | "highlight" | "text";
 type TextDraft = {
   page: number;
+  pageWidth: number;
+  pageHeight: number;
   x: number;
   y: number;
   screenLeft: number;
@@ -144,7 +148,7 @@ function moveAnnotation(annotation: PdfAnnotation, dx: number, dy: number): PdfA
   };
 }
 
-export default function PdfEditor({ document, onCancel }: FormatEditorProps) {
+export default function PdfEditor({ document, onCancel, onSaved }: FormatEditorProps) {
   const pageCanvasRefs = useRef<Record<number, HTMLCanvasElement | null>>({});
   const annotationCanvasRefs = useRef<Record<number, HTMLCanvasElement | null>>({});
   const pdfRef = useRef<any>(null);
@@ -170,6 +174,25 @@ export default function PdfEditor({ document, onCancel }: FormatEditorProps) {
   const [error, setError] = useState<string | null>(null);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
+
+  useEffect(() => {
+    function preventBackNavigation(event: KeyboardEvent) {
+      if (event.key !== "Backspace") return;
+      const target = event.target;
+      const isEditable =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        (target instanceof HTMLElement && target.isContentEditable);
+
+      if (!isEditable) {
+        event.preventDefault();
+      }
+    }
+
+    window.addEventListener("keydown", preventBackNavigation);
+    return () => window.removeEventListener("keydown", preventBackNavigation);
+  }, []);
 
   useEffect(() => {
     annotationsRef.current = annotations;
@@ -428,6 +451,8 @@ export default function PdfEditor({ document, onCancel }: FormatEditorProps) {
       setSelectedId(null);
       setTextDraft({
         page: pageNumber,
+        pageWidth: event.currentTarget.width,
+        pageHeight: event.currentTarget.height,
         x: point.x,
         y: point.y,
         screenLeft: event.clientX,
@@ -557,6 +582,8 @@ export default function PdfEditor({ document, onCancel }: FormatEditorProps) {
                 ...annotation,
                 x: draft.x,
                 y: draft.y,
+                pageWidth: draft.pageWidth,
+                pageHeight: draft.pageHeight,
                 text: cleanText,
                 color: draft.color,
                 fontSize: draft.fontSize,
@@ -574,6 +601,8 @@ export default function PdfEditor({ document, onCancel }: FormatEditorProps) {
         id: makeId(),
         type: "text",
         page: draft.page,
+        pageWidth: draft.pageWidth,
+        pageHeight: draft.pageHeight,
         x: draft.x,
         y: draft.y,
         text: cleanText,
@@ -595,6 +624,8 @@ export default function PdfEditor({ document, onCancel }: FormatEditorProps) {
               ...annotation,
               x: draft.x,
               y: draft.y,
+              pageWidth: draft.pageWidth,
+              pageHeight: draft.pageHeight,
               text: cleanText,
               color: draft.color,
               fontSize: draft.fontSize,
@@ -609,6 +640,8 @@ export default function PdfEditor({ document, onCancel }: FormatEditorProps) {
         id: makeId(),
         type: "text" as const,
         page: draft.page,
+        pageWidth: draft.pageWidth,
+        pageHeight: draft.pageHeight,
         x: draft.x,
         y: draft.y,
         text: cleanText,
@@ -626,6 +659,8 @@ export default function PdfEditor({ document, onCancel }: FormatEditorProps) {
     setSelectedId(annotation.id);
     setTextDraft({
       page: annotation.page,
+      pageWidth: annotation.pageWidth ?? canvas.width,
+      pageHeight: annotation.pageHeight ?? canvas.height,
       x: annotation.x,
       y: annotation.y,
       screenLeft: rect.left + (annotation.x / canvas.width) * rect.width,
@@ -679,7 +714,7 @@ export default function PdfEditor({ document, onCancel }: FormatEditorProps) {
     setAnnotations(annotationsToSave);
     setTextDraft(null);
 
-    const { error } = await API.saveDocumentAnnotations(document.id, annotationsToSave);
+    const { data, error } = await API.saveDocumentAnnotations(document.id, annotationsToSave);
     setSaving(false);
     if (error) {
       setError(error.message);
@@ -687,6 +722,7 @@ export default function PdfEditor({ document, onCancel }: FormatEditorProps) {
     }
 
     lastSavedAnnotationsRef.current = JSON.stringify(annotationsToSave);
+    onSaved({ chunks: data?.chunks ?? 0 }, { closeAfterSave: false });
     return true;
   }
 
@@ -938,7 +974,6 @@ export default function PdfEditor({ document, onCancel }: FormatEditorProps) {
                 current ? { ...current, value: event.target.value } : current
               )
             }
-            onBlur={commitTextDraft}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();

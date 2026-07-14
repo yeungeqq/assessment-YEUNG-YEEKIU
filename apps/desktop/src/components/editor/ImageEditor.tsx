@@ -83,6 +83,25 @@ export default function ImageEditor({ document, onCancel, onSaved }: FormatEdito
   const [zoom, setZoom] = useState(1);
 
   useEffect(() => {
+    function preventBackNavigation(event: KeyboardEvent) {
+      if (event.key !== "Backspace") return;
+      const target = event.target;
+      const isEditable =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        (target instanceof HTMLElement && target.isContentEditable);
+
+      if (!isEditable) {
+        event.preventDefault();
+      }
+    }
+
+    window.addEventListener("keydown", preventBackNavigation);
+    return () => window.removeEventListener("keydown", preventBackNavigation);
+  }, []);
+
+  useEffect(() => {
     annotationsRef.current = annotations;
     renderCanvas(annotations, currentStrokeRef.current, selectedId);
   }, [annotations, selectedId]);
@@ -545,7 +564,7 @@ export default function ImageEditor({ document, onCancel, onSaved }: FormatEdito
     setAnnotations(annotationsToSave);
     setTextDraft(null);
 
-    const { error } = await API.saveDocumentAnnotations(
+    const { data, error } = await API.saveDocumentAnnotations(
       document.id,
       annotationsToSave
     );
@@ -555,6 +574,7 @@ export default function ImageEditor({ document, onCancel, onSaved }: FormatEdito
       return false;
     }
     lastSavedAnnotationsRef.current = JSON.stringify(annotationsToSave);
+    onSaved({ chunks: data?.chunks ?? 0 }, { closeAfterSave: false });
     return true;
   }
 
@@ -781,7 +801,6 @@ export default function ImageEditor({ document, onCancel, onSaved }: FormatEdito
                   current ? { ...current, value: event.target.value } : current
                 )
               }
-              onBlur={commitTextDraft}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
                   event.preventDefault();
